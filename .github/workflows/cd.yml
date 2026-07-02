@@ -45,8 +45,9 @@ jobs:
 
       - name: Backend Health Check
         run: |
-          curl --fail https://${{ secrets.BACKEND_APP_NAME }}.azurewebsites.net/health
+          curl --fail https://smartrfptest-backend-hkgvceevfqdth4ca.australiaeast-01.azurewebsites.net/health
 
+          
   deploy-frontend:
 
     needs: deploy-backend
@@ -82,4 +83,4 @@ jobs:
 
       - name: Frontend Health Check
         run: |
-          curl --fail https://${{ secrets.FRONTEND_APP_NAME }}.azurewebsites.net
+          curl --fail https://smartrfptest-frontend-evcpesesdvb3h9az.australiaeast-01.azurewebsites.net

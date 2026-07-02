@@ -46,6 +46,8 @@ if "metrics_started" not in st.session_state:
 state.initialize_state()
 ss = state.get_state()
 
+st.write("Testing CI/CD")
+
 # =========================================================================== #
 #  STYLES
 # =========================================================================== #

@@ -6,10 +6,6 @@ on:
     types:
       - completed
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
 
   deploy-backend:
@@ -32,7 +28,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Backend Dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -41,30 +37,15 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.BACKEND_APP_NAME }}
+          publish-profile: ${{ secrets.BACKEND_PUBLISH_PROFILE }}
           package: .
 
       - name: Wait for Backend
-        run: sleep 45
+        run: sleep 30
 
       - name: Backend Health Check
         run: |
-          for i in {1..20}
-          do
-            STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
-              https://${{ secrets.BACKEND_APP_NAME }}.azurewebsites.net/health)
-
-            echo "Status = $STATUS"
-
-            if [ "$STATUS" = "200" ]; then
-              echo "Backend is healthy."
-              exit 0
-            fi
-
-            sleep 10
-          done
-
-          echo "Backend failed health check."
-          exit 1
+          curl --fail https://${{ secrets.BACKEND_APP_NAME }}.azurewebsites.net/health
 
   deploy-frontend:
 
@@ -78,13 +59,6 @@ jobs:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -100,27 +74,12 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.FRONTEND_APP_NAME }}
+          publish-profile: ${{ secrets.FRONTEND_PUBLISH_PROFILE }}
           package: .
 
       - name: Wait for Frontend
-        run: sleep 45
+        run: sleep 30
 
       - name: Frontend Health Check
         run: |
-          for i in {1..20}
-          do
-            STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
-              https://${{ secrets.FRONTEND_APP_NAME }}.azurewebsites.net)
-
-            echo "Status = $STATUS"
-
-            if [ "$STATUS" = "200" ]; then
-              echo "Frontend is healthy."
-              exit 0
-            fi
-
-            sleep 10
-          done
-
-          echo "Frontend failed health check."
-          exit 1
+          curl --fail https://${{ secrets.FRONTEND_APP_NAME }}.azurewebsites.net

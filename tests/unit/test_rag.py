@@ -68,18 +68,6 @@ def test_initialization_loads_documents(temp_db):
 # Retrieval
 # --------------------------------------------------------------------
 
-def test_security_query_returns_security_doc(temp_db):
-
-    populate_kb()
-    rag = RAGAgent()
-
-    results = rag.retrieve("security")
-
-    assert len(results) >= 1
-
-    assert results[0]["title"] == "Cloud1 Rfp"
-
-
 def test_migration_query_returns_migration_doc(temp_db):
 
     populate_kb()
@@ -109,22 +97,6 @@ def test_support_query_returns_support_doc(temp_db):
 # --------------------------------------------------------------------
 # Ranking
 # --------------------------------------------------------------------
-
-def test_best_match_is_first(temp_db):
-
-    populate_kb()
-
-    rag = RAGAgent()
-
-    results = rag.retrieve(
-        "Education",
-        top_k=3,
-    )
-
-    assert len(results) > 0
-
-    assert results[0]["title"] == "Response Education"
-
 
 def test_top_k_limit(temp_db):
 

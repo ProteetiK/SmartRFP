@@ -55,6 +55,7 @@ def test_no_keywords():
 def test_default_pricing_line():
 
     lines = _mock_pricing(
+        1,
         "Random unrelated document."
     )
 
@@ -66,6 +67,7 @@ def test_default_pricing_line():
 def test_cloud_pricing_generated():
 
     lines = _mock_pricing(
+        1,
         "Cloud migration project."
     )
 
@@ -77,6 +79,7 @@ def test_cloud_pricing_generated():
 def test_margin_line_exists():
 
     lines = _mock_pricing(
+        1,
         "Cloud migration."
     )
 
@@ -86,6 +89,7 @@ def test_margin_line_exists():
 def test_margin_not_stale():
 
     lines = _mock_pricing(
+        1,
         "Cloud migration."
     )
 
@@ -99,6 +103,7 @@ def test_margin_not_stale():
 def test_one_stale_line_when_multiple_items():
 
     lines = _mock_pricing(
+        1,
         "Cloud migration support security"
     )
 
@@ -110,6 +115,7 @@ def test_one_stale_line_when_multiple_items():
 def test_default_line_not_stale():
 
     lines = _mock_pricing(
+        1,
         "Nothing relevant."
     )
 
@@ -123,6 +129,7 @@ def test_default_line_not_stale():
 def test_pricing_schema():
 
     line = _mock_pricing(
+        1,
         "Cloud"
     )[0]
 
@@ -142,6 +149,7 @@ def test_pricing_schema():
 def test_total_is_numeric():
 
     line = _mock_pricing(
+        1,
         "Cloud"
     )[0]
 
@@ -151,6 +159,7 @@ def test_total_is_numeric():
 def test_source_is_pricing_api():
 
     line = _mock_pricing(
+        1,
         "Cloud"
     )[0]
 
@@ -169,6 +178,7 @@ def test_fetch_pricing_without_web(monkeypatch):
     )
 
     lines, insight = fetch_pricing(
+        1,
         "Cloud migration"
     )
 
@@ -185,6 +195,7 @@ def test_fetch_pricing_with_mocked_web(monkeypatch):
     )
 
     lines, insight = fetch_pricing(
+        1,
         "Cloud migration"
     )
 
@@ -200,6 +211,7 @@ def test_fetch_pricing_with_mocked_web(monkeypatch):
 def test_margin_is_18_percent():
 
     lines = _mock_pricing(
+        1,
         "Cloud migration"
     )
 
@@ -220,6 +232,7 @@ def test_margin_is_18_percent():
 def test_totals_are_positive():
 
     lines = _mock_pricing(
+        1,
         "Cloud migration security support"
     )
 

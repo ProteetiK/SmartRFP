@@ -42,9 +42,7 @@ class FakeRAG:
 
         return self.docs
 
-
-def fake_pricing(text):
-
+def fake_pricing(*args, **kwargs):
     return (
         [
             {
@@ -60,11 +58,8 @@ def fake_pricing(text):
         None,
     )
 
-
 def fake_generate(requirements, rag, pricing, web):
-
     return [
-
         {
             "section_title": "Executive Summary",
             "content": "Generated content",
@@ -73,10 +68,8 @@ def fake_generate(requirements, rag, pricing, web):
             "flag_note": None,
             "confidence": "high",
         }
-
     ]
-
-
+      
 def fake_eval(**kwargs):
 
     return {

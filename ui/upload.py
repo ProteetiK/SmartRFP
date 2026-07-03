@@ -6,7 +6,8 @@ from config import (SUPPORTED_TYPES, MAX_UPLOAD_MB, REVIEWER_ROLES)
 from utils.file_handler import extract_text
 from .api import upload_rfp
 import state
-
+import os
+import requests
 # =========================================================================== #
 #  PAGE: Upload
 # =========================================================================== #
@@ -72,11 +73,20 @@ def page_upload():
                 "This document doesn't appear to be an RFP. "
                 "Analysis may not produce the expected results."
             )
-
         rid = db.create_rfp(deal or up.name, client, region, deadline, "", "",
                             up.name, raw, role, "", use_web)
+        print("=== Local DB Inserted ===")
         bar = st.progress(0.0, text="Starting…")
         try:
+            url = os.getenv("BACKEND_URL") + "/health"
+
+            print("Calling:", url)
+
+            r = requests.get(url, timeout=10)
+
+            print(r.status_code)
+            print(r.text)
+            print("=== Calling FastAPI ===")
             result = upload_rfp(
                 uploaded_file=up,
                 deal_name=deal,
@@ -88,8 +98,10 @@ def page_upload():
             )
             bar.progress(1.0, text="Completed")
             rid = result["rfp_id"]
+            print("=== FastAPI Returned ===")
         except Exception as e:
             st.error(str(e))
+            print(str(e))
         finally:
             bar.empty()
         st.success("✅ Analysis complete. Opening Dashboard…")

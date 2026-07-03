@@ -1,8 +1,8 @@
 import requests
+import os
 
-#API_BASE_URL = "http://backend:8000"
-import streamlit as st
-BASE_URL = st.secrets["BACKEND_URL"]
+API_BASE_URL = os.environ["BACKEND_URL"]
+print("API_BASE_URL =", API_BASE_URL)
 
 def upload_rfp(
     uploaded_file,
@@ -25,7 +25,7 @@ def upload_rfp(
         "deal_name": deal_name,
         "client_name": client_name,
         "region": region,
-        "deadline": deadline,
+        "deadline": str(deadline),
         "assigned_role": assigned_role,
         "use_web_search": str(use_web_search).lower(),
     }

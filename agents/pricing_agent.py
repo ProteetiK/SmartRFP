@@ -16,7 +16,8 @@ Hooks for real data:
 import os
 import random
 from datetime import datetime, timedelta
-from langsmith import traceable
+from langsmith import trace
+from langsmith.run_helpers import get_current_run_tree
 
 from metrics import (
     PRICING_REQUESTS,
@@ -39,11 +40,7 @@ def _keywords_in(text: str):
     t = (text or "").lower()
     return [k for k in RATE_CARD if k in t]
 
-@traceable(
-    name="Pricing Engine",
-    run_type="tool",
-)
-def _mock_pricing(rfp_text: str):
+def _mock_pricing(rfp_id: int, rfp_text: str):
     """Build pricing lines based on keywords found in the RFP text."""
     now = datetime.now()
     keys = _keywords_in(rfp_text) or []
@@ -86,10 +83,6 @@ def _line(item, qty, unit_price, source, now, stale=False, precomputed_total=Non
         "stale": bool(stale),
     }
 
-@traceable(
-    name="Pricing Web Search",
-    run_type="tool",
-)
 def _optional_web_insight(rfp_text: str):
     """If TAVILY_API_KEY is set, fetch one live web insight. Otherwise return None."""
     key = os.getenv("TAVILY_API_KEY", "").strip()
@@ -107,16 +100,17 @@ def _optional_web_insight(rfp_text: str):
         print(f"[pricing] Tavily web insight failed: {e}")
         return None
 
-@traceable(
-    name="Pricing Agent",
-    run_type="chain",
-)
-def fetch_pricing(rfp_text: str):
-    PRICING_REQUESTS.inc()
-    """
-    Public entry point. Returns (pricing_lines, web_insight_or_None).
-    """
-    lines = _mock_pricing(rfp_text)
-    insight = _optional_web_insight(rfp_text)
-    PRICING_ITEMS.observe(len(lines))
-    return lines, insight
+def fetch_pricing(rfp_id: int, rfp_text: str, parent_run=None):
+    with trace(
+        "Pricing Engine",
+        run_type="chain",
+        parent=parent_run,
+    ):
+        PRICING_REQUESTS.inc()
+        """
+        Public entry point. Returns (pricing_lines, web_insight_or_None).
+        """
+        lines = _mock_pricing(rfp_id, rfp_text)
+        insight = _optional_web_insight(rfp_text)
+        PRICING_ITEMS.observe(len(lines))
+        return lines, insight

@@ -30,6 +30,7 @@ app = FastAPI(
     title="SmartRFP API",
     version="1.0",
 )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

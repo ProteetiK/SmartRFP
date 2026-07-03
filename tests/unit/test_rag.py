@@ -77,7 +77,7 @@ def test_security_query_returns_security_doc(temp_db):
 
     assert len(results) >= 1
 
-    assert results[0]["title"] == "Rfp 02 Cybersecurity"
+    assert results[0]["title"] == "Cloud1 Rfp"
 
 
 def test_migration_query_returns_migration_doc(temp_db):
@@ -123,7 +123,7 @@ def test_best_match_is_first(temp_db):
 
     assert len(results) > 0
 
-    assert results[0]["title"] == "Rfp 07 Education Lms"
+    assert results[0]["title"] == "Response Education"
 
 
 def test_top_k_limit(temp_db):

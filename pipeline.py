@@ -150,10 +150,7 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
 
         # ---- F4: synthesize the draft -----------------------------------------
         step("Synthesizing draft (F4)…", 0.8)
-        with trace(
-        "Draft Generation",
-        run_type="chain"):
-            sections = generate_draft(requirements, rag_agent, pricing_lines, web_insight)
+        sections = generate_draft(requirements, rag_agent, pricing_lines, web_insight)
         db.save_draft_sections(rfp_id, sections)
 
         # ---------------- Evaluation ----------------

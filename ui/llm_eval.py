@@ -189,7 +189,6 @@ def page_llm_eval():
         "Pricing Web Search",
         "Fetch Pricing",
         "Groq Chat",
-        "LLM Prompt - Draft Generator",
         "Draft Generator",
     ]
 
@@ -230,9 +229,59 @@ def page_llm_eval():
     )
 
     stats = pd.DataFrame(runtime_rows)
+   
+    st.subheader("⚡ Runtime Performance")
 
-    st.dataframe(
-            stats,
+    # ---------------- Latency Chart ----------------
+    latency_stats = stats[
+        stats["Metric"].str.contains("Latency")
+    ].copy()
+
+    if not latency_stats.empty:
+        latency_stats["Seconds"] = (
+            latency_stats["Value"]
+            .str.replace(" sec", "", regex=False)
+            .astype(float)
+        )
+
+        st.bar_chart(
+            latency_stats.set_index("Metric")["Seconds"],
             use_container_width=True,
+        )
+
+    # ---------------- Summary Metrics ----------------
+    st.subheader("📊 Pipeline Statistics")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "LLM Calls",
+        stats.loc[
+            stats["Metric"] == "LLM Calls",
+            "Value",
+        ].iloc[0],
+    )
+
+    c2.metric(
+        "Knowledge Docs",
+        stats.loc[
+            stats["Metric"] == "Knowledge Base Documents",
+            "Value",
+        ].iloc[0],
+    )
+
+    c3.metric(
+        "Pricing Items",
+        stats.loc[
+            stats["Metric"] == "Pricing Items",
+            "Value",
+        ].iloc[0],
+    )
+
+    # Optional: expandable raw table
+    with st.expander("View Raw Runtime Data"):
+        st.dataframe(
+            stats,
             hide_index=True,
+            use_container_width=True,
         )

@@ -19,7 +19,7 @@ from ui.upload import page_upload
 from ui.llm_eval import page_llm_eval
 from ui.help_pg import page_help
 from ui.ui_utils import go
-
+import os
 
 from prometheus_client import start_http_server
 from config import (APP_NAME, GROQ_MODEL)
@@ -34,19 +34,18 @@ db.init_db()
 
 import threading
 
-if "metrics_started" not in st.session_state:
-    threading.Thread(
-        target=start_http_server,
-        args=(8000,),
-        daemon=True,
-    ).start()
+if os.getenv("ENVIRONMENT") == "DEVELOPMENT":
+  if "metrics_started" not in st.session_state:
+      threading.Thread(
+          target=start_http_server,
+          args=(8000,),
+          daemon=True,
+      ).start()
 
-    st.session_state.metrics_started = True
+      st.session_state.metrics_started = True
 
 state.initialize_state()
 ss = state.get_state()
-
-st.write("Testing CI/CD")
 
 # =========================================================================== #
 #  STYLES

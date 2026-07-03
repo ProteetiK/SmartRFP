@@ -20,6 +20,7 @@ import database as db
 from backend import crud
 
 from langsmith import traceable, trace
+from langsmith.run_helpers import get_current_run_tree
 from evaluation import evaluate_pipeline
 
 import time
@@ -110,6 +111,7 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
         `progress` is an optional callable(step_label, fraction) for UI updates.
         Returns a summary dict.
         """
+        run = get_current_run_tree()
         def step(label, frac):
             if progress:
                 progress(label, frac)
@@ -132,8 +134,9 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
             rag_agent = RAGAgent()
 
             with ThreadPoolExecutor(max_workers=2) as ex:
+                parent_run = get_current_run_tree()
                 # Agent 2 (pricing/web) runs in its own thread
-                pricing_future = ex.submit(fetch_pricing, raw_text)
+                pricing_future = ex.submit(fetch_pricing, rfp_id, raw_text, parent_run)
                 # Agent 1 is initialized above; retrieval happens during synthesis.
                 pricing_lines, web_insight = pricing_future.result()
 
@@ -154,7 +157,14 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
         db.save_draft_sections(rfp_id, sections)
 
         # ---------------- Evaluation ----------------
+        current_run = get_current_run_tree()
+
+        trace_id = None
+
+        if current_run:
+            trace_id = str(current_run.trace_id)
         runtime = time.perf_counter() - start_time
+
         evaluation = evaluate_pipeline(
             requirements=requirements,
             sections=sections,

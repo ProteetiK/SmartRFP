@@ -82,7 +82,7 @@ def _ctx(docs):
     return "\n\n".join(f"[{d['title']} | {d['doc_type']}] {d['content']}" for d in docs)
 
 @traceable(
-    name="LLM Prompt",
+    name="LLM Prompt - Draft Generator",
     run_type="prompt",
 )
 def _ask(prompt, context, max_tokens=420, temperature=0.4):

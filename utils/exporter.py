@@ -2,7 +2,8 @@
 utils/exporter.py
 -----------------
 Feature F6 (Output): export the approved RFP response to DOCX, PDF, or TXT.
-Each function returns raw bytes so Streamlit's download_button can serve them.
+Each function returns raw bytes so the API/Streamlit download button can
+serve them.
 
 Includes: deal/client header, every draft section with sources & flags,
 the pricing table, and an audit summary.
@@ -15,18 +16,6 @@ from docx import Document
 from docx.shared import Pt, RGBColor
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
-
-import database as db
-
-
-# --------------------------------------------------------------------------- #
-#  Shared data assembly
-# --------------------------------------------------------------------------- #
-def _gather(rfp_id):
-    rfp = db.get_rfp(rfp_id)
-    sections = db.get_draft_sections(rfp_id)
-    pricing = db.get_pricing(rfp_id)
-    return rfp, sections, pricing
 
 
 def _sanitize(text):
@@ -46,8 +35,7 @@ def _sanitize(text):
 # --------------------------------------------------------------------------- #
 #  TXT
 # --------------------------------------------------------------------------- #
-def export_txt(rfp_id) -> bytes:
-    rfp, sections, pricing = _gather(rfp_id)
+def export_txt(rfp, sections, pricing) -> bytes:
     lines = []
     lines.append("=" * 60)
     lines.append(f"RFP RESPONSE — {rfp['deal_name']}")
@@ -84,8 +72,7 @@ def export_txt(rfp_id) -> bytes:
 # --------------------------------------------------------------------------- #
 #  DOCX
 # --------------------------------------------------------------------------- #
-def export_docx(rfp_id) -> bytes:
-    rfp, sections, pricing = _gather(rfp_id)
+def export_docx(rfp, sections, pricing) -> bytes:
     doc = Document()
 
     title = doc.add_heading(f"RFP Response — {rfp['deal_name']}", level=0)
@@ -158,8 +145,7 @@ class _PDF(FPDF):
         self.cell(0, 8, f"Page {self.page_no()}", align="C")
 
 
-def export_pdf(rfp_id) -> bytes:
-    rfp, sections, pricing = _gather(rfp_id)
+def export_pdf(rfp, sections, pricing) -> bytes:
     pdf = _PDF()
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()

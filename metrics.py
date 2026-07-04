@@ -125,3 +125,133 @@ HALLUCINATION_FLAGS = _metric(
     "smartrfp_hallucination_flags",
     "Number of hallucination flags"
 )
+
+# -------------------------------------------------------
+# Guardrail Metrics
+# -------------------------------------------------------
+
+def _metric_labeled(factory, name, description, labelnames):
+    try:
+        return factory(name, description, labelnames)
+    except ValueError:
+        return REGISTRY._names_to_collectors[name]
+
+
+GUARDRAIL_INPUT_BLOCKS = _metric_labeled(
+    Counter,
+    "smartrfp_guardrail_input_blocks_total",
+    "Inputs rejected by guardrails, by rule",
+    ["rule"],
+)
+
+GUARDRAIL_OUTPUT_REDACTIONS = _metric_labeled(
+    Counter,
+    "smartrfp_guardrail_output_redactions_total",
+    "Output redactions applied, by reason",
+    ["reason"],
+)
+
+GUARDRAIL_PII_REDACTIONS = _metric_labeled(
+    Counter,
+    "smartrfp_guardrail_pii_redactions_total",
+    "PII redactions applied, by category",
+    ["category"],
+)
+
+GUARDRAIL_HALLUCINATION_FLAGS = _metric(
+    Counter,
+    "smartrfp_guardrail_hallucination_terms_total",
+    "Risky/unverifiable claim terms detected in generated output",
+)
+
+# -------------------------------------------------------
+# LLM Failover Metrics
+# -------------------------------------------------------
+
+LLM_FAILOVER_TOTAL = _metric_labeled(
+    Counter,
+    "smartrfp_llm_failover_total",
+    "LLM provider failover events, by from_provider/to_provider",
+    ["from_provider", "to_provider"],
+)
+
+LLM_PROVIDER_REQUESTS = _metric_labeled(
+    Counter,
+    "smartrfp_llm_provider_requests_total",
+    "LLM requests by provider and outcome",
+    ["provider", "outcome"],
+)
+
+# -------------------------------------------------------
+# API / Auth / Rate-limit Metrics
+# -------------------------------------------------------
+
+AUTH_FAILURES = _metric(
+    Counter,
+    "smartrfp_auth_failures_total",
+    "Rejected requests due to missing/invalid API key"
+)
+
+RATE_LIMIT_REJECTIONS = _metric(
+    Counter,
+    "smartrfp_rate_limit_rejections_total",
+    "Requests rejected due to rate limiting"
+)
+
+# -------------------------------------------------------
+# Evaluation Metrics (deterministic, per latest run)
+# -------------------------------------------------------
+
+EVAL_SCORE = _metric_labeled(
+    Gauge,
+    "smartrfp_eval_score",
+    "Latest deterministic evaluation score, by metric name",
+    ["metric"],
+)
+
+EVAL_BELOW_THRESHOLD = _metric(
+    Counter,
+    "smartrfp_eval_below_threshold_total",
+    "Proposals flagged below a configured quality threshold"
+)
+
+# -------------------------------------------------------
+# RAGAS Metrics
+# -------------------------------------------------------
+
+RAGAS_SCORE = _metric_labeled(
+    Gauge,
+    "smartrfp_ragas_score",
+    "Latest RAGAS (LLM-judged) score, by metric name",
+    ["metric"],
+)
+
+RAGAS_RUNS = _metric_labeled(
+    Counter,
+    "smartrfp_ragas_runs_total",
+    "RAGAS evaluation job outcomes",
+    ["outcome"],  # completed | failed | skipped
+)
+
+RAGAS_RETRIES = _metric(
+    Counter,
+    "smartrfp_ragas_retries_total",
+    "RAGAS evaluation retry attempts after a transient failure"
+)
+
+RAGAS_DURATION = _metric(
+    Histogram,
+    "smartrfp_ragas_duration_seconds",
+    "Wall-clock time for a RAGAS evaluation job, including retries"
+)
+
+# -------------------------------------------------------
+# Per-stage pipeline latency (real, measured, not estimated)
+# -------------------------------------------------------
+
+STAGE_LATENCY = _metric_labeled(
+    Histogram,
+    "smartrfp_stage_latency_seconds",
+    "Wall-clock time per pipeline stage, by stage name",
+    ["stage"],
+)

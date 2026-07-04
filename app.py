@@ -4,11 +4,11 @@ app.py — SmartRFP
 Streamlit front end styled to match the SmartRFP design mockups:
 Upload, Dashboard, Resource Cost, Human Review, Export, Settings, Help & Docs.
 
-Backend (unchanged, all working): config, database (SQLite), llm (Groq +
-demo fallback), pipeline (parse → RAG ‖ pricing → synthesize), exporters.
+This is a pure HTTP client of the FastAPI backend (see ui/api.py) --
+PostgreSQL, Pinecone, and the Groq/OpenAI LLM calls all live server-side.
+The frontend holds no database connection and no LLM API keys.
 """
 import streamlit as st
-from llm import ping as groq_ping
 
 from ui.dashboard import page_dashboard
 from ui.export import page_export
@@ -19,31 +19,13 @@ from ui.upload import page_upload
 from ui.llm_eval import page_llm_eval
 from ui.help_pg import page_help
 from ui.ui_utils import go
-import os
+from ui import api
 
-from prometheus_client import start_http_server
-from config import (APP_NAME, GROQ_MODEL)
-import database as db
-import state 
-from llm import llm_available
+from config import APP_NAME
+import state
 
 st.set_page_config(page_title=f"{APP_NAME} — RFP Analysis", page_icon="📄",
                    layout="wide", initial_sidebar_state="expanded")
-
-db.init_db()
-
-import threading
-
-if os.getenv("ENVIRONMENT") == "DEVELOPMENT":
-  if "metrics_started" not in st.session_state:
-      threading.Thread(
-          target=start_http_server,
-          args=(8000,),
-          daemon=True,
-      ).start()
-
-      st.session_state.metrics_started = True
-
 state.initialize_state()
 ss = state.get_state()
 
@@ -254,16 +236,17 @@ with st.sidebar:
             go(name)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    live = llm_available()
+    llm_status = api.llm_status()
+    live = bool(llm_status.get("ok"))
     st.markdown(
         f"<div class='groq'><div class='row'><span class='dot {'' if live else 'off'}'></span>"
         f"Groq API Status</div><div class='st {'' if live else 'off'}'>"
-        f"{'Connected' if live else 'Demo mode'}</div>"
-        f"<div class='mod'>Model: {GROQ_MODEL}</div></div>", unsafe_allow_html=True)
+        f"{'Connected' if live else 'Unavailable'}</div>"
+        f"<div class='mod'>Model: {llm_status.get('model', '?')}</div></div>", unsafe_allow_html=True)
     if st.button("🔌 Test Connection", key="side_test", use_container_width=True):
-        with st.spinner("Calling Groq…"):
-            r = groq_ping()
-        st.toast(("✅ " + r["message"]) if r["ok"] else ("❌ " + r["message"]))
+        with st.spinner("Asking the backend to call Groq…"):
+            r = api.llm_status()
+        st.toast(("✅ " + r["message"]) if r.get("ok") else ("❌ " + r.get("message", "Unavailable")))
 
 # =========================================================================== #
 #  ROUTER

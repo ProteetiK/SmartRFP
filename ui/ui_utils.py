@@ -1,6 +1,6 @@
 ﻿from contextlib import contextmanager
 import streamlit as st
-import database as db
+from ui import api
 import state
 
 def go(page, rfp_id=None):
@@ -33,7 +33,7 @@ def topbar(title, subtitle, icon="", show_rfp=False):
             cols = st.columns([2.9, 0.75, 0.75, 0.75])
 
         if show_rfp:
-            rfps = db.list_rfps()
+            rfps = api.list_rfps()
             if rfps:
                 ids = [r["id"] for r in rfps]
                 lbl = {r["id"]: r["deal_name"] for r in rfps}
@@ -77,19 +77,19 @@ def card(title=None):
 
 def current_rfp():
     ss = state.get_state()
-    rfps = db.list_rfps()
+    rfps = api.list_rfps()
     if not rfps:
         return None
     ids = [r["id"] for r in rfps]
     rid = ss.current_rfp if ss.current_rfp in ids else ids[0]
     ss.current_rfp = rid
-    return db.get_rfp(rid)
+    return api.get_rfp(rid)
 
 
 def exported_ids():
     out = set()
-    for r in db.list_rfps():
-        for a in db.get_audit_log(r["id"]):
+    for r in api.list_rfps():
+        for a in api.get_audit_log(r["id"]):
             if "export" in (a["action"] or "").lower():
                 out.add(r["id"]); break
     return out

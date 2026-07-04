@@ -2,7 +2,7 @@
 import pandas as pd
 import altair as alt
 
-import database as db
+from ui import api
 
 from ui.ui_utils import (topbar,exported_ids,metric, card, pill, go)
 
@@ -15,7 +15,7 @@ def page_dashboard():
     ss = state.get_state()
     topbar("Dashboard", "Overview of your RFP analysis and proposal generation pipeline.", "📊")
 
-    rfps = db.list_rfps()
+    rfps = api.list_rfps()
     exp = exported_ids()
     total = len(rfps)
     analyzed = sum(1 for r in rfps if r["status"] != "Uploaded")
@@ -77,7 +77,7 @@ def page_dashboard():
                     c[3].write((r.get("updated_at") or "")[:10])
                     if c[4].button("🗑️", key=f"dashdel_{r['id']}", help="Delete this RFP",
                                    use_container_width=True):
-                        db.delete_rfp(r["id"]); st.toast("RFP deleted."); st.rerun()
+                        api.delete_rfp(r["id"]); st.toast("RFP deleted."); st.rerun()
             else:
                 st.info("No RFPs yet.")
             if st.button("View all →", key="dash_viewall"):

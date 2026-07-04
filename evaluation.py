@@ -1,6 +1,6 @@
 from statistics import mean
 
-import llm
+from backend.llm import llm_available
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -137,11 +137,11 @@ def evaluate_pipeline(
     # Metadata
     # ----------------------------------------------------
 
-    kb_documents = len(rag_agent.docs) if rag_agent else 0
+    kb_documents = sum(len(sec.get("retrieved_docs", [])) for sec in rag_sections)
 
     pricing_items = len(pricing_lines)
 
-    llm_demo_mode = llm.used_demo()
+    llm_demo_mode = not llm_available()
 
     llm_calls = 5
 

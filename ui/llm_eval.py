@@ -1,7 +1,7 @@
 ﻿import streamlit as st
 import pandas as pd
 
-import database as db
+from ui import api
 from ui.ui_utils import topbar, card, current_rfp, metric
 
 from langsmith_utils import (
@@ -23,9 +23,10 @@ def page_llm_eval():
     if not rfp:
         st.info("No RFP selected.")
         return
-    evaluation = db.get_evaluation_metrics(rfp["id"])
-    if not rfp :
-        st.info("No evaluation metrics available.")
+    evaluation = api.get_evaluation_metrics(rfp["id"])
+    if not evaluation:
+        st.info("No evaluation metrics available yet for this RFP -- it may still be "
+                "processing, or the pipeline run failed before evaluation.")
         return
     if evaluation:
         overall_score = (

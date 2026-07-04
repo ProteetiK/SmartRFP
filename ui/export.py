@@ -2,8 +2,7 @@
 import streamlit as st
 import pandas as pd
 
-import database as db
-from utils.exporter import export_txt, export_docx, export_pdf
+from ui import api
 
 from ui.ui_utils import (topbar,current_rfp, go)
 
@@ -13,7 +12,7 @@ import state
 #  PAGE: Export
 # =========================================================================== #
 def _html_export(rfp):
-    secs = db.get_draft_sections(rfp["id"])
+    secs = api.get_draft_sections(rfp["id"])
     body = "".join(f"<h2>{s['section_title']}</h2><p>{s['content']}</p>" for s in secs)
     html = (f"<!doctype html><html><head><meta charset='utf-8'><title>{rfp['deal_name']}</title>"
             f"<style>body{{font-family:Arial;max-width:800px;margin:40px auto;color:#0f172a}}"
@@ -24,7 +23,7 @@ def _html_export(rfp):
 
 
 def _xlsx_export(rfp):
-    pricing = db.get_pricing(rfp["id"])
+    pricing = api.get_pricing(rfp["id"])
     df = pd.DataFrame([{"Item": p["item"], "Qty": p["qty"], "Unit price": p["unit_price"],
                         "Total": p["total"], "Fetched": p["fetched_at"],
                         "Stale": "Yes" if p["stale"] else "No"} for p in pricing]) \
@@ -80,7 +79,7 @@ def page_export():
         st.selectbox("Branding", ["SmartRFP Default Template", "Minimal", "Corporate"])
     st.markdown("</div>", unsafe_allow_html=True)
 
-    secs = db.get_draft_sections(rfp["id"])
+    secs = api.get_draft_sections(rfp["id"])
 
     # summary + export
     s1, s2 = st.columns([1.2, 1])
@@ -109,10 +108,10 @@ def page_export():
             if not ok:
                 st.button("⬇️ Export Now", disabled=True, use_container_width=True)
             elif fmt == "PDF":
-                st.download_button("⬇️ Export Now", export_pdf(rfp["id"]), f"{safe}.pdf",
+                st.download_button("⬇️ Export Now", api.export_bytes(rfp["id"], "pdf"), f"{safe}.pdf",
                                    "application/pdf", type="primary", use_container_width=True)
             elif fmt == "Word (DOCX)":
-                st.download_button("⬇️ Export Now", export_docx(rfp["id"]), f"{safe}.docx",
+                st.download_button("⬇️ Export Now", api.export_bytes(rfp["id"], "docx"), f"{safe}.docx",
                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                    type="primary", use_container_width=True)
             elif fmt == "Excel (XLSX)":
@@ -123,16 +122,16 @@ def page_export():
                 st.download_button("⬇️ Export Now", _html_export(rfp), f"{safe}.html",
                                    "text/html", type="primary", use_container_width=True)
             elif fmt == "Text (TXT)":
-                st.download_button("⬇️ Export Now", export_txt(rfp["id"]), f"{safe}.txt",
+                st.download_button("⬇️ Export Now", api.export_bytes(rfp["id"], "txt"), f"{safe}.txt",
                                    "text/plain", type="primary", use_container_width=True)
             else:  # PowerPoint placeholder -> export executive summary as TXT
-                st.download_button("⬇️ Export Now (summary .txt)", export_txt(rfp["id"]),
+                st.download_button("⬇️ Export Now (summary .txt)", api.export_bytes(rfp["id"], "txt"),
                                    f"{safe}.txt", "text/plain", type="primary", use_container_width=True)
                 st.caption("PPTX generation isn't enabled in this build; exporting the summary as text.")
         except Exception as e:
             st.error(f"Export failed: {e}")
         if ok and rfp["status"] != "Rejected":
-            db.log_action(rfp["id"], "Exported", rfp.get("assigned_role") or "Reviewer", fmt)
+            api.log_action(rfp["id"], "Exported", rfp.get("assigned_role") or "Reviewer", fmt)
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.info("🔒 Data Security: Exported files are generated on-demand and are not stored on our servers.")
@@ -144,4 +143,3 @@ def page_export():
         use_container_width=True,
         ):
         go("AI Evaluation")
-

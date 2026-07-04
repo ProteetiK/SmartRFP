@@ -1,6 +1,6 @@
 # SmartRFP dependencies (tested versions)
 streamlit==1.58.0
-groq==1.5.0
+groq>=0.9,<1.0.0
 langsmith>=0.3.0
 python-docx==1.2.0
 fpdf2==2.8.7
@@ -22,3 +22,27 @@ datasets
 ragas
 # Optional: enables real live web insights in Agent 2 if TAVILY_API_KEY is set
 # tavily-python==0.5.0
+slowapi 
+sqlalchemy
+psycopg2-binary
+alembic
+pydantic-settings
+python-dotenv
+langchain
+langchain-core
+langchain-community
+langchain-groq
+langchain-openai
+langchain-huggingface
+langchain-text-splitters
+sentence-transformers
+pinecone
+faiss-cpu
+python-multipart
+pymupdf
+pdfplumber
+docx2txt
+numpy
+requests
+httpx
+tqdm

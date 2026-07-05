@@ -1,6 +1,9 @@
 ﻿import streamlit as st
 from datetime import date
-import database as db
+
+from backend.database import SessionLocal
+from backend import crud
+
 from ui.ui_utils import (topbar, go)
 from config import (SUPPORTED_TYPES, MAX_UPLOAD_MB, REVIEWER_ROLES)
 from utils.file_handler import extract_text
@@ -41,52 +44,28 @@ def page_upload():
     )
 
     if up and analyze:
+        rid = None  # ✅ ALWAYS initialize first
+
         try:
             raw = extract_text(up.name, up.getvalue())
-        except Exception as e:
-            st.error(f"Could not read that file: {e}"); return
-        if len(raw.strip()) < 30:
-            st.error("That file has almost no readable text."); return
-        if len(raw) < 100:
-            st.error("The document contains very little readable text.")
-            st.stop()
 
-        # Optional: ensure enough words
-        if len(raw.split()) < 20:
-            st.error("The document does not contain enough content for analysis.")
-            st.stop()
+            if len(raw.strip()) < 30:
+                st.error("File too small")
+                st.stop()
 
-        RFP_KEYWORDS = [
-            "proposal",
-            "rfp",
-            "requirements",
-            "scope",
-            "deliverables",
-        ]
+            if len(raw.split()) < 20:
+                st.error("Not enough content")
+                st.stop()
 
-        text = raw.lower()
+            RFP_KEYWORDS = ["proposal", "rfp", "requirements", "scope", "deliverables"]
+            text = raw.lower()
+            matches = sum(k in text for k in RFP_KEYWORDS)
 
-        matches = sum(keyword in text for keyword in RFP_KEYWORDS)
+            if matches < 2:
+                st.warning("Not a valid RFP")
 
-        if matches < 2:
-            st.warning(
-                "This document doesn't appear to be an RFP. "
-                "Analysis may not produce the expected results."
-            )
-        rid = db.create_rfp(deal or up.name, client, region, deadline, "", "",
-                            up.name, raw, role, "", use_web)
-        print("=== Local DB Inserted ===")
-        bar = st.progress(0.0, text="Starting…")
-        try:
-            url = os.getenv("BACKEND_URL") + "/health"
+            bar = st.progress(0.0, text="Processing...")
 
-            print("Calling:", url)
-
-            r = requests.get(url, timeout=10)
-
-            print(r.status_code)
-            print(r.text)
-            print("=== Calling FastAPI ===")
             result = upload_rfp(
                 uploaded_file=up,
                 deal_name=deal,
@@ -96,16 +75,24 @@ def page_upload():
                 assigned_role=role,
                 use_web_search=use_web,
             )
-            bar.progress(1.0, text="Completed")
-            rid = result["rfp_id"]
-            print("=== FastAPI Returned ===")
+
+            rid = result.get("rfp_id")   # ✅ SAFE ACCESS
+
+            bar.progress(1.0)
+            st.success("Analysis complete")
+
         except Exception as e:
-            st.error(str(e))
-            print(str(e))
+            st.error(f"Upload failed: {e}")
+
         finally:
-            bar.empty()
-        st.success("✅ Analysis complete. Opening Dashboard…")
-        go("Dashboard", rid)
+            if "bar" in locals():
+                bar.empty()
+
+        # ✅ ONLY navigate if rid exists
+        if rid is not None:
+            go("Dashboard", rid)
+        else:
+            st.error("RFP ID not generated, cannot navigate")
 
     g1, g2 = st.columns(2)
     with g1:
@@ -117,9 +104,18 @@ def page_upload():
                     f"✅ Maximum file size: {MAX_UPLOAD_MB}MB</div></div>", unsafe_allow_html=True)
     with g2:
         rows = ""
-        for r in db.list_rfps()[:4]:
-            rows += (f"<div class='feed'><div class='fi ic-red'>📕</div><div style='flex:1'>"
-                     f"<div class='ft'>{r['file_name'] or r['deal_name']}</div>"
-                     f"<div class='fd'>{(r.get('updated_at') or '')[:10]}</div></div></div>")
+        session = SessionLocal()
+
+        try:
+            rows_data = crud.list_rfps(session)
+        finally:
+            session.close()
+
+        for r in rows_data[:4]:
+           rows += (
+                    f"<div class='feed'><div class='fi ic-red'>📕</div><div style='flex:1'>"
+                    f"<div class='ft'>{r.file_name or r.deal_name}</div>"
+                    f"<div class='fd'>{str(r.updated_at or '')[:10]}</div></div></div>"
+                )
         st.markdown(f"<div class='card'><h3>🗂️ Recent Uploads</h3>{rows or '<div class=muted>No uploads yet.</div>'}</div>",
                     unsafe_allow_html=True)

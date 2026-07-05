@@ -1,7 +1,7 @@
 import requests
 import os
 
-API_BASE_URL = os.environ["BACKEND_URL"]
+API_BASE_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 print("API_BASE_URL =", API_BASE_URL)
 
 def upload_rfp(

@@ -1,7 +1,9 @@
 ﻿import streamlit as st
 import pandas as pd
 
-import database as db
+from backend.database import SessionLocal
+from backend import crud
+
 from ui.export import current_rfp
 from ui.ui_utils import (topbar,card, current_rfp, metric, go)
 import state
@@ -25,15 +27,28 @@ def page_resource_cost():
         ):
         go("Dashboard")
     rfp = current_rfp()
+    session = SessionLocal()
     if not rfp:
         st.info("No RFPs yet. Upload one to see the cost estimate."); return
 
-    pricing = db.get_pricing(rfp["id"])
+
+    try:
+        pricing = crud.get_pricing(session, rfp.id)
+    finally:
+        session.close()
     # ---- Total cost: sum of Agent 2 pricing lines (dynamic, from RFP keywords) ----
-    total_cost = sum(p["total"] for p in pricing) if pricing else 245680.0
+    total_cost = sum(p.total for p in pricing) if pricing else 245680.0
 
     # ---- Effort: derived from the RFP's parsed requirements (dynamic per RFP) ----
-    num_req = rfp.get("num_requirements") or len(db.get_draft_sections(rfp["id"])) or 8
+    session = SessionLocal()
+
+    try:
+        sections = crud.get_draft_sections(session, rfp.id)
+    finally:
+        session.close()
+
+    num_req = rfp.num_requirements or len(sections) or 8
+
     BASE_OVERHEAD_HRS = 160          # PM / setup / mobilisation
     HRS_PER_REQUIREMENT = 130        # analysis + design + build + test per requirement
     total_hours = BASE_OVERHEAD_HRS + num_req * HRS_PER_REQUIREMENT
@@ -43,8 +58,8 @@ def page_resource_cost():
     weeks = max(1, -(-total_hours // TEAM_CAPACITY_HRS_PER_WEEK))   # ceil
 
     # ---- Confidence: derived from pricing freshness + reviewer flags (dynamic) ----
-    stale = any(p.get("stale") for p in pricing)
-    num_flags = rfp.get("num_flags") or 0
+    stale = any(bool(p.stale) for p in pricing)
+    num_flags = rfp.num_flags or 0
     if not stale and num_flags == 0:
         confidence, variance = "High", "±8%"
     elif not stale and num_flags <= 2:

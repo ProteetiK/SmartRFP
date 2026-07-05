@@ -2,7 +2,9 @@
 import streamlit as st
 import pandas as pd
 
-import database as db
+
+from backend.database import SessionLocal
+from backend import crud
 from utils.exporter import export_txt, export_docx, export_pdf
 
 from ui.ui_utils import (topbar,current_rfp, go)
@@ -13,21 +15,42 @@ import state
 #  PAGE: Export
 # =========================================================================== #
 def _html_export(rfp):
-    secs = db.get_draft_sections(rfp["id"])
-    body = "".join(f"<h2>{s['section_title']}</h2><p>{s['content']}</p>" for s in secs)
-    html = (f"<!doctype html><html><head><meta charset='utf-8'><title>{rfp['deal_name']}</title>"
+    session = SessionLocal()
+
+    try:
+        secs = crud.get_draft_sections(session, rfp.id)
+    finally:
+        session.close()
+    body = "".join(
+    f"<h2>{s.section_title}</h2><p>{s.content}</p>"
+    for s in secs
+)
+    html = (f"<!doctype html><html><head><meta charset='utf-8'><title>{rfp.deal_name}</title>"
             f"<style>body{{font-family:Arial;max-width:800px;margin:40px auto;color:#0f172a}}"
             f"h1{{color:#2563eb}}h2{{margin-top:1.4em}}</style></head><body>"
-            f"<h1>{rfp['deal_name']}</h1><p><b>Client:</b> {rfp.get('client_name') or '—'}</p>"
+            f"<h1>{rfp.deal_name}</h1><p><b>Client:</b> {rfp.client_name or '—'}</p>"
             f"{body}</body></html>")
     return html.encode("utf-8")
 
 
 def _xlsx_export(rfp):
-    pricing = db.get_pricing(rfp["id"])
-    df = pd.DataFrame([{"Item": p["item"], "Qty": p["qty"], "Unit price": p["unit_price"],
-                        "Total": p["total"], "Fetched": p["fetched_at"],
-                        "Stale": "Yes" if p["stale"] else "No"} for p in pricing]) \
+    session = SessionLocal()
+
+    try:
+        pricing = crud.get_pricing(session, rfp.id)
+    finally:
+        session.close()
+    df = pd.DataFrame([
+    {
+        "Item": p.item,
+        "Qty": p.qty,
+        "Unit price": p.unit_price,
+        "Total": p.total,
+        "Fetched": p.fetched_at,
+        "Stale": "Yes" if p.stale else "No",
+    }
+    for p in pricing
+]) if pricing else pd.DataFrame([{"Item": "(no pricing)"}]) \
         if pricing else pd.DataFrame([{"Item": "(no pricing)"}])
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as xl:
@@ -80,25 +103,33 @@ def page_export():
         st.selectbox("Branding", ["SmartRFP Default Template", "Minimal", "Corporate"])
     st.markdown("</div>", unsafe_allow_html=True)
 
-    secs = db.get_draft_sections(rfp["id"])
+    session = SessionLocal()
+
+    try:
+        secs = crud.get_draft_sections(session, rfp.id)
+    finally:
+        session.close()
 
     # summary + export
     s1, s2 = st.columns([1.2, 1])
     with s1:
-        st.markdown(f"<div class='card'><h3>2. Export Summary</h3>"
+        st.markdown(
+                    f"<div class='card'><h3>2. Export Summary</h3>"
                     f"<div class='muted' style='line-height:2'>"
-                    f"📄 RFP Document — <span class='b'>{rfp['deal_name']}</span><br>"
+                    f"📄 RFP Document — <span class='b'>{rfp.deal_name}</span><br>"
                     f"📋 Total Sections — <span class='b'>{len(secs)}</span><br>"
                     f"📑 Estimated Pages — <span class='b'>24 – 30</span><br>"
                     f"💾 Format — <span class='b'>{ss.export_format}</span><br>"
-                    f"🕐 Last Updated — <span class='b'>{(rfp.get('updated_at') or '')[:16]}</span>"
-                    f"</div></div>", unsafe_allow_html=True)
+                    f"🕐 Last Updated — <span class='b'>{str(rfp.updated_at or '')[:16]}</span>"
+                    f"</div></div>",
+                    unsafe_allow_html=True,
+                )
     with s2:
         st.markdown("<div class='card'><h3>✅ Export Ready</h3>"
                     "<div class='muted'>Your RFP response is ready to be exported.</div><br>",
                     unsafe_allow_html=True)
         fmt = ss.export_format
-        safe = "".join(ch if ch.isalnum() else "_" for ch in rfp["deal_name"])[:40] or "proposal"
+        safe = "".join(ch if ch.isalnum() else "_" for ch in rfp.deal_name)[:40] or "proposal"
         ok = True
         if ss.get("confirm_export", True):
             ok = st.checkbox("I confirm this proposal is ready to export", key="confirm_exp_chk")
@@ -109,10 +140,10 @@ def page_export():
             if not ok:
                 st.button("⬇️ Export Now", disabled=True, use_container_width=True)
             elif fmt == "PDF":
-                st.download_button("⬇️ Export Now", export_pdf(rfp["id"]), f"{safe}.pdf",
+                st.download_button("⬇️ Export Now", export_pdf(rfp.id), f"{safe}.pdf",
                                    "application/pdf", type="primary", use_container_width=True)
             elif fmt == "Word (DOCX)":
-                st.download_button("⬇️ Export Now", export_docx(rfp["id"]), f"{safe}.docx",
+                st.download_button("⬇️ Export Now", export_docx(rfp.id), f"{safe}.docx",
                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                    type="primary", use_container_width=True)
             elif fmt == "Excel (XLSX)":
@@ -123,16 +154,27 @@ def page_export():
                 st.download_button("⬇️ Export Now", _html_export(rfp), f"{safe}.html",
                                    "text/html", type="primary", use_container_width=True)
             elif fmt == "Text (TXT)":
-                st.download_button("⬇️ Export Now", export_txt(rfp["id"]), f"{safe}.txt",
+                st.download_button("⬇️ Export Now", export_txt(rfp.id), f"{safe}.txt",
                                    "text/plain", type="primary", use_container_width=True)
             else:  # PowerPoint placeholder -> export executive summary as TXT
-                st.download_button("⬇️ Export Now (summary .txt)", export_txt(rfp["id"]),
+                st.download_button("⬇️ Export Now (summary .txt)", export_txt(rfp.id),
                                    f"{safe}.txt", "text/plain", type="primary", use_container_width=True)
                 st.caption("PPTX generation isn't enabled in this build; exporting the summary as text.")
         except Exception as e:
             st.error(f"Export failed: {e}")
-        if ok and rfp["status"] != "Rejected":
-            db.log_action(rfp["id"], "Exported", rfp.get("assigned_role") or "Reviewer", fmt)
+        if ok and rfp.status != "Rejected":
+            session = SessionLocal()
+
+            try:
+                crud.log_action(
+                    session,
+                    rfp.id,
+                    "Exported",
+                    rfp.assigned_role or "Reviewer",
+                    fmt,
+                )
+            finally:
+                session.close()
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.info("🔒 Data Security: Exported files are generated on-demand and are not stored on our servers.")

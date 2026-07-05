@@ -2,7 +2,8 @@
 import pandas as pd
 import altair as alt
 
-import database as db
+from backend.database import SessionLocal
+from backend import crud
 
 from ui.ui_utils import (topbar,exported_ids,metric, card, pill, go)
 
@@ -15,12 +16,17 @@ def page_dashboard():
     ss = state.get_state()
     topbar("Dashboard", "Overview of your RFP analysis and proposal generation pipeline.", "📊")
 
-    rfps = db.list_rfps()
+    session = SessionLocal()
+
+    try:
+        rfps = crud.list_rfps(session)
+    finally:
+        session.close()
     exp = exported_ids()
     total = len(rfps)
-    analyzed = sum(1 for r in rfps if r["status"] != "Uploaded")
-    in_review = sum(1 for r in rfps if r["status"] == "In Review")
-    approved = sum(1 for r in rfps if r["status"] == "Approved")
+    analyzed = sum(1 for r in rfps if r.status != "Uploaded")
+    in_review = sum(1 for r in rfps if r.status == "In Review")
+    approved = sum(1 for r in rfps if r.status == "Approved")
     exported = len(exp)
 
     cols = st.columns(5)
@@ -35,8 +41,8 @@ def page_dashboard():
     # ---- Donut ----
     with left:
         with card("RFP Status Overview"):
-            drafting = sum(1 for r in rfps if r["status"] == "Drafting")
-            others = sum(1 for r in rfps if r["status"] in ("Uploaded", "Rejected"))
+            drafting = sum(1 for r in rfps if r.status == "Drafting")
+            others = sum(1 for r in rfps if r.status in ("Uploaded", "Rejected"))
             data = pd.DataFrame({
                 "Status": ["Analyzed", "In Review", "Approved", "Exported", "Others"],
                 "Count": [max(analyzed - in_review - approved, drafting),
@@ -48,7 +54,7 @@ def page_dashboard():
             else:
                 data["pct"] = (data["Count"] / tot * 100).round(0).astype(int)
                 data["label"] = data.apply(
-                    lambda r: f'{int(r["Count"])} ({r["pct"]}%)' if r["Count"] > 0 else "", axis=1)
+                    lambda r: f'{int(r.Count)} ({r.pct}%)' if r.Count > 0 else "", axis=1)
                 rng = ["#2563eb", "#93c5fd", "#16a34a", "#f59e0b", "#cbd5e1"]
                 base = alt.Chart(data).encode(
                     theta=alt.Theta("Count:Q", stack=True),
@@ -71,13 +77,22 @@ def page_dashboard():
                                unsafe_allow_html=True)
                 for r in rfps[:n]:
                     c = st.columns([2.3, 1.6, 1.3, 1.4, 0.6])
-                    c[0].write(r["deal_name"])
-                    c[1].write(r.get("client_name") or "—")
-                    c[2].markdown(pill(r["status"]), unsafe_allow_html=True)
-                    c[3].write((r.get("updated_at") or "")[:10])
-                    if c[4].button("🗑️", key=f"dashdel_{r['id']}", help="Delete this RFP",
+                    c[0].write(r.deal_name)
+                    c[1].write(r.client_name or "—")
+                    c[2].markdown(pill(r.status), unsafe_allow_html=True)
+                    c[3].write(str(r.updated_at or "")[:10])
+                    if c[4].button("🗑️", key=f"dashdel_{r.id}", help="Delete this RFP",
                                    use_container_width=True):
-                        db.delete_rfp(r["id"]); st.toast("RFP deleted."); st.rerun()
+                        session = SessionLocal()
+
+                        try:
+                            crud.delete_rfp(session, r.id)
+                        finally:
+                            session.close()
+
+                        st.toast("RFP deleted.")
+                        st.rerun()
+                        st.toast("RFP deleted."); st.rerun()
             else:
                 st.info("No RFPs yet.")
             if st.button("View all →", key="dash_viewall"):

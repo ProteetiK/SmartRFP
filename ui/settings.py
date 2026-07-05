@@ -3,7 +3,10 @@ import streamlit as st
 import pandas as pd
 
 import config
-import database as db
+
+from backend.database import SessionLocal
+from backend import crud
+
 from utils.exporter import export_txt, export_docx, export_pdf
 from llm import ping as groq_ping
 import state
@@ -122,23 +125,58 @@ def page_settings():
             st.code("GROQ_API_KEY=gsk_your_real_key_here\nGROQ_MODEL=openai/gpt-oss-20b")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='card'><h3>📚 Knowledge Base ({}) </h3>".format(db.kb_count()),
-                    unsafe_allow_html=True)
-        for d_ in db.get_kb_docs():
-            st.markdown(f"- **{d_['title']}** · *{d_['doc_type']}*")
+        session = SessionLocal()
+        try:
+            kb_count = crud.kb_count(session)
+        finally:
+            session.close()
+
+        st.markdown(
+            f"<div class='card'><h3>📚 Knowledge Base ({kb_count})</h3>",
+            unsafe_allow_html=True,
+        )
+        session = SessionLocal()
+        try:
+            docs = crud.get_kb_docs(session)
+        finally:
+            session.close()
+
+        for d_ in docs:
+            st.markdown(f"- **{d_.title}** · *{d_.doc_type}*")
         with st.expander("➕ Add a knowledge-base document"):
             t = st.text_input("Title", key="kbt"); dt = st.text_input("Type", "reference", key="kbdt")
             ct = st.text_area("Content", key="kbc", height=100)
             if st.button("Add document", key="kbadd") and t and ct:
-                db.add_kb_doc(t, dt, ct); st.success("Added."); st.rerun()
+                
+                session = SessionLocal()
+                try:
+                    crud.add_kb_doc(session, t, dt, ct)
+                finally:
+                    session.close()
+
+                st.success("Added.")
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     with tabs[2]:
         st.markdown("<div class='card'><h3>🛡️ Data & Privacy</h3>", unsafe_allow_html=True)
         st.caption("Manage RFP data stored locally in SQLite (smartrfp.db).")
-        for r in db.list_rfps():
+        session = SessionLocal()
+        try:
+            rfps = crud.list_rfps(session)
+        finally:
+            session.close()
+
+        for r in rfps:
             c = st.columns([5, 1])
-            c[0].write(f"{r['deal_name']} — {r['status']}")
-            if c[1].button("Delete", key=f"del_{r['id']}"):
-                db.delete_rfp(r["id"]); st.rerun()
+            c[0].write(f"{r.deal_name} — {r.status}")
+            if c[1].button("Delete", key=f"del_{r.id}"):
+
+                session = SessionLocal()
+                try:
+                    crud.delete_rfp(session, r.id)
+                finally:
+                    session.close()
+
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)

@@ -152,30 +152,26 @@ from langsmith import Client
 
 client = Client()
 
+from typing import Optional
+from langsmith import Client
+import streamlit as st
+
+client = Client()
+
 
 def get_trace_id_for_rfp(rfp_id: int) -> Optional[str]:
     """
-    Find the latest LangSmith trace for an RFP.
+    Return the current trace ID if available.
+    Never crash the UI if LangSmith is unavailable.
     """
-    client = Client()
 
-    runs = list(
-        client.list_runs(
-            project_name=os.getenv("LANGSMITH_PROJECT"),
-            is_root=True,
-            limit=50,
-        )
-    )
-    if not runs:
-        return 0
+    try:
+        run = get_current_pipeline_run()
 
-    for run in runs:
-        if not run.inputs:
-            continue
-        run_rfp_id = run.inputs.get("rfp_id")
-        if run_rfp_id is None:
-            continue
-        if str(run_rfp_id) == str(rfp_id):
+        if run is not None:
             return str(run.trace_id)
-            
+
+    except Exception as e:
+        st.warning(f"LangSmith unavailable: {e}")
+
     return 0

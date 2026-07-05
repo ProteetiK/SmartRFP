@@ -1,7 +1,8 @@
 ﻿import streamlit as st
 import pandas as pd
 
-import database as db
+from backend.database import SessionLocal
+from backend import crud
 from ui.ui_utils import topbar, card, current_rfp, metric
 
 from langsmith_utils import (
@@ -23,18 +24,24 @@ def page_llm_eval():
     if not rfp:
         st.info("No RFP selected.")
         return
-    evaluation = db.get_evaluation_metrics(rfp["id"])
-    if not rfp :
+    session = SessionLocal()
+
+    try:
+        evaluation = crud.get_evaluation_metrics(session, rfp.id)
+    finally:
+        session.close()
+
+    if evaluation is None:
         st.info("No evaluation metrics available.")
         return
+
     if evaluation:
         overall_score = (
-            evaluation["proposal_completeness"]
-            + evaluation["average_confidence"]
-            + evaluation["context_coverage"]
-            + evaluation["pricing_freshness"]
+            evaluation.proposal_completeness
+            + evaluation.average_confidence
+            + evaluation.context_coverage
+            + evaluation.pricing_freshness
         ) / 4
-
         left, _, _ = st.columns([1, 2, 1])
 
         with left:
@@ -53,7 +60,7 @@ def page_llm_eval():
             "ic-green",
             "✅",
             "Completeness",
-            f"{evaluation['proposal_completeness'] * 100:.0f}%",
+            f"{evaluation.proposal_completeness * 100:.0f}%",
             "Proposal",
         )
 
@@ -62,7 +69,7 @@ def page_llm_eval():
             "ic-blue",
             "📚",
             "Context",
-            f"{evaluation['context_coverage'] * 100:.0f}%",
+            f"{evaluation.context_coverage * 100:.0f}%",
             "Grounded",
         )
 
@@ -71,7 +78,7 @@ def page_llm_eval():
             "ic-purple",
             "🎯",
             "Confidence",
-            f"{evaluation['average_confidence']:.2f}",
+            f"{evaluation.average_confidence :.2f}",
             "LLM",
         )
 
@@ -80,7 +87,7 @@ def page_llm_eval():
             "ic-red",
             "⚠️",
             "Flags",
-            str(evaluation["hallucination_flags"]),
+            str(evaluation.hallucination_flags),
             "Review",
         )
         st.divider()
@@ -97,7 +104,7 @@ def page_llm_eval():
             "ic-blue",
             "📖",
             "Faithfulness",
-            f"{evaluation['faithfulness'] * 100:.1f}%",
+            f"{evaluation.faithfulness * 100:.1f}%",
             "Grounded",
         )
 
@@ -106,7 +113,7 @@ def page_llm_eval():
             "ic-green",
             "🎯",
             "Answer Relevancy",
-            f"{evaluation['answer_relevancy'] * 100:.1f}%",
+            f"{evaluation.answer_relevancy * 100:.1f}%",
             "Relevant",
         )
 
@@ -115,7 +122,7 @@ def page_llm_eval():
             "ic-purple",
             "📚",
             "Context Precision",
-            f"{evaluation['context_precision'] * 100:.1f}%",
+            f"{evaluation.context_precision * 100:.1f}%",
             "Retrieved",
         )
 
@@ -124,7 +131,7 @@ def page_llm_eval():
             "ic-amber",
             "🔍",
             "Context Recall",
-            f"{evaluation['context_recall'] * 100:.1f}%",
+            f"{evaluation.context_recall * 100:.1f}%",
             "Coverage",
         )
 
@@ -135,7 +142,7 @@ def page_llm_eval():
             "ic-blue",
             "🏆",
             "MRR@K",
-            f"{evaluation['mrr']:.2f}",
+            f"{evaluation.mrr :.2f}",
             "Ranking",
         )
 
@@ -144,7 +151,7 @@ def page_llm_eval():
             "ic-green",
             "🎯",
             "Hit Rate@K",
-            f"{evaluation['hit_rate'] * 100:.0f}%",
+            f"{evaluation.hit_rate * 100:.0f}%",
             "Success",
         )
 
@@ -153,7 +160,7 @@ def page_llm_eval():
             "ic-red",
             "🧩",
             "Chunk Overlap",
-            f"{evaluation['chunk_overlap'] * 100:.1f}%",
+            f"{evaluation.chunk_overlap * 100:.1f}%",
             "Lower is Better",
         )
 
@@ -162,7 +169,12 @@ def page_llm_eval():
     # Runtime Statistics
     # ----------------------------------------------------------------------- #
     # ----------------------------------------------------------------------- #
-    trace_id = get_trace_id_for_rfp(rfp.get("id"))
+    try:
+        trace_id = get_trace_id_for_rfp(rfp.id)
+    except Exception as e:
+        st.warning(f"LangSmith unavailable: {e}")
+        trace_id = 0
+
     latencies = {}
 
     if trace_id != 0:
@@ -177,7 +189,7 @@ def page_llm_eval():
     # # Show locally measured runtime first
     runtime_rows.append({
         "Metric": "Pipeline Runtime",
-        "Value": f"{evaluation['runtime_seconds']} sec",
+        "Value": f"{evaluation.runtime_seconds} sec",
     })
 
     # Add every LangSmith span that exists
@@ -215,37 +227,42 @@ def page_llm_eval():
         [
             {
                 "Metric": "LLM Calls",
-                "Value": evaluation["llm_calls"],
+                "Value": evaluation.llm_calls,
             },
             {
                 "Metric": "Knowledge Base Documents",
-                "Value": evaluation["knowledge_documents"],
+                "Value": evaluation.knowledge_documents,
             },
             {
                 "Metric": "Pricing Items",
-                "Value": evaluation["pricing_items"],
+                "Value": evaluation.pricing_items,
             },
         ]
     )
 
     stats = pd.DataFrame(runtime_rows)
+
+    # FORCE STRING SAFETY
+    stats["Value"] = stats["Value"].astype(str)
+
+    st.dataframe(stats, use_container_width=True, hide_index=True)
    
     st.subheader("⚡ Runtime Performance")
 
     # ---------------- Latency Chart ----------------
     latency_stats = stats[
-        stats["Metric"].str.contains("Latency")
+        stats.Metric.str.contains("Latency")
     ].copy()
 
     if not latency_stats.empty:
-        latency_stats["Seconds"] = (
-            latency_stats["Value"]
+        latency_stats.Seconds = (
+            latency_stats.Value
             .str.replace(" sec", "", regex=False)
             .astype(float)
         )
 
         st.bar_chart(
-            latency_stats.set_index("Metric")["Seconds"],
+            latency_stats.set_index.Metric.Seconds,
             use_container_width=True,
         )
 
@@ -257,7 +274,7 @@ def page_llm_eval():
     c1.metric(
         "LLM Calls",
         stats.loc[
-            stats["Metric"] == "LLM Calls",
+            stats.Metric == "LLM Calls",
             "Value",
         ].iloc[0],
     )
@@ -265,7 +282,7 @@ def page_llm_eval():
     c2.metric(
         "Knowledge Docs",
         stats.loc[
-            stats["Metric"] == "Knowledge Base Documents",
+            stats.Metric == "Knowledge Base Documents",
             "Value",
         ].iloc[0],
     )
@@ -273,7 +290,7 @@ def page_llm_eval():
     c3.metric(
         "Pricing Items",
         stats.loc[
-            stats["Metric"] == "Pricing Items",
+            stats.Metric == "Pricing Items",
             "Value",
         ].iloc[0],
     )

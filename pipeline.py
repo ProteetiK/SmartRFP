@@ -16,7 +16,8 @@ from agents.extractor import extract_requirements
 from agents.rag_agent import RAGAgent
 from agents.pricing_agent import fetch_pricing
 from agents.draft_generator import generate_draft
-import database as db
+
+from backend.database import SessionLocal
 from backend import crud
 
 from langsmith import traceable, trace
@@ -43,25 +44,25 @@ class Repository:
         if self.session:
             crud.save_requirements(self.session, rfp_id, requirements)
         else:
-            db.save_requirements(rfp_id, requirements)
+            crud.save_requirements(rfp_id, requirements)
 
     def save_pricing(self, rfp_id, pricing):
         if self.session:
             crud.save_pricing(self.session, rfp_id, pricing)
         else:
-            db.save_pricing(rfp_id, pricing)
+            crud.save_pricing(rfp_id, pricing)
 
     def save_draft_sections(self, rfp_id, sections):
         if self.session:
             crud.save_draft_sections(self.session, rfp_id, sections)
         else:
-            db.save_draft_sections(rfp_id, sections)
+            crud.save_draft_sections(rfp_id, sections)
 
     def save_evaluation(self, rfp_id, metrics):
         if self.session:
             crud.save_evaluation_metrics(self.session, rfp_id, metrics)
         else:
-            db.save_evaluation_metrics(rfp_id, metrics)
+            crud.save_evaluation_metrics(rfp_id, metrics)
 
     def update_metrics(self, rfp_id, reqs, flags, status):
         if self.session:
@@ -73,7 +74,7 @@ class Repository:
                 status,
             )
         else:
-            db.update_rfp_metrics(
+            crud.update_rfp_metrics(
                 rfp_id,
                 reqs,
                 flags,
@@ -90,7 +91,7 @@ class Repository:
                 detail,
             )
         else:
-            db.log_action(
+            crud.log_action(
                 rfp_id,
                 action,
                 actor,
@@ -102,6 +103,8 @@ class Repository:
     run_type="chain",
 )
 def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
+    session = SessionLocal()
+
     try:
         PIPELINE_RUNS.inc()
         start_time = time.perf_counter()
@@ -122,8 +125,8 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
         "Requirement Extraction",
         run_type="chain"):
             requirements = extract_requirements(raw_text)
-        db.save_requirements(rfp_id, requirements)
-        db.log_action(rfp_id, "Parsed", "System",
+        crud.save_requirements(session, rfp_id, requirements)
+        crud.log_action(session, rfp_id, "Parsed", "System",
                       f"{len(requirements)} requirements extracted")
 
         # ---- F2 + F3: run both agents in PARALLEL ------------------------------
@@ -143,15 +146,15 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
         if not use_web_search:
             web_insight = None
 
-        db.save_pricing(rfp_id, pricing_lines)
-        db.log_action(rfp_id, "Agents run", "System",
+        crud.save_pricing(session,rfp_id, pricing_lines)
+        crud.log_action(session,rfp_id, "Agents run", "System",
                       f"RAG over {len(rag_agent.docs)} KB docs; "
                       f"{len(pricing_lines)} pricing lines fetched")
 
         # ---- F4: synthesize the draft -----------------------------------------
         step("Synthesizing draft (F4)…", 0.8)
         sections = generate_draft(requirements, rag_agent, pricing_lines, web_insight)
-        db.save_draft_sections(rfp_id, sections)
+        crud.save_draft_sections(session,rfp_id, sections)
 
         # ---------------- Evaluation ----------------
         current_run = get_current_run_tree()
@@ -170,15 +173,16 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
             rag_agent=rag_agent,
         )
 
-        db.save_evaluation_metrics(
+        crud.save_evaluation_metrics(
+            session,
             rfp_id,
             evaluation,
         )
 
         num_flags = evaluation["hallucination_flags"]
 
-        db.update_rfp_metrics(rfp_id, len(requirements), num_flags, "In Review")
-        db.log_action(rfp_id, "Draft generated", "System",
+        crud.update_rfp_metrics(session, rfp_id, len(requirements), num_flags, "In Review")
+        crud.log_action(session, rfp_id, "Draft generated", "System",
                       f"{len(sections)} sections, {num_flags} flags")
 
         step("Done.", 1.0)
@@ -202,3 +206,6 @@ def run_pipeline(rfp_id, raw_text, use_web_search=True, progress=None):
     except Exception:
         PIPELINE_FAILURES.inc()
         raise
+
+    finally:
+        session.close()

@@ -91,7 +91,25 @@ def update_rfp_metrics(
         rfp.updated_at = _now()
         db.commit()
 
+def update_rfp_status(
+    db: Session,
+    rfp_id: int,
+    status: str,
+):
+    rfp = get_rfp(db, rfp_id)
 
+    if rfp:
+        rfp.status = status
+        rfp.updated_at = _now()
+        db.commit()
+
+def delete_rfp(db: Session, rfp_id: int):
+    rfp = db.query(models.RFP).filter(models.RFP.id == rfp_id).first()
+
+    if rfp:
+        db.delete(rfp)
+        db.commit()
+          
 # --------------------------------------------------------------------------- #
 #  Requirements
 # --------------------------------------------------------------------------- #
@@ -152,6 +170,17 @@ def get_draft_sections(db: Session, rfp_id: int):
         .filter(models.DraftSection.rfp_id == rfp_id)
         .all()
     )
+
+def update_draft_section(db: Session, section_id: int, content: str):
+    section = (
+        db.query(models.DraftSection)
+        .filter(models.DraftSection.id == section_id)
+        .first()
+    )
+
+    if section:
+        section.content = content
+        db.commit()
 
 
 # --------------------------------------------------------------------------- #

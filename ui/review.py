@@ -1,9 +1,8 @@
 ﻿import streamlit as st
 import pandas as pd
-import database as db
+from ui import api
 
 from ui.ui_utils import (topbar,card,current_rfp, pill, go)
-from .api import (regenerate)
 
 # =========================================================================== #
 #  PAGE: Human Review
@@ -22,7 +21,7 @@ def page_review():
     rfp = current_rfp()
     if not rfp:
         st.info("No RFPs yet. Upload one to review."); return
-    sections = db.get_draft_sections(rfp["id"])
+    sections = api.get_draft_sections(rfp["id"])
     if not sections:
         st.info("This RFP has no draft yet."); return
 
@@ -47,8 +46,8 @@ def page_review():
                     new = st.text_area("content", value=s["content"], height=200,
                                        label_visibility="collapsed", key=f"edit_{s['id']}")
                     if st.button("💾 Save", key=f"save_{s['id']}"):
-                        db.update_draft_section(s["id"], new)
-                        db.log_action(rfp["id"], "Edited section", reviewer, s["section_title"])
+                        api.update_draft_section(s["id"], new)
+                        api.log_action(rfp["id"], "Edited section", reviewer, s["section_title"])
                         st.toast("Saved."); st.rerun()
                 st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -58,26 +57,29 @@ def page_review():
             comment = st.text_area("Reviewer comments", placeholder="Add a comment…",
                                    key="review_comment", height=90)
             if st.button("✅ Approve Proposal", use_container_width=True, key="approve_all"):
-                db.update_rfp_status(rfp["id"], "Approved")
-                db.log_action(rfp["id"], "Approved", reviewer,
+                api.set_status(rfp["id"], "Approved", comment.strip()[:80] or "Proposal approved")
+                api.log_action(rfp["id"], "Approved", reviewer,
                               comment.strip()[:80] or "Proposal approved")
                 st.toast("Proposal approved.")
                 st.rerun()
             if st.button("✏️ Request Changes", use_container_width=True, key="req_changes"):
-                db.update_rfp_status(rfp["id"], "In Review")
-                db.log_action(rfp["id"], "Changes requested", reviewer,
+                api.set_status(rfp["id"], "In Review", comment.strip()[:80] or "Changes requested")
+                api.log_action(rfp["id"], "Changes requested", reviewer,
                               comment.strip()[:80] or "Changes requested")
                 st.toast("Changes requested."); st.rerun()
             if st.button("💬 Add Comment", use_container_width=True, key="add_cmt"):
                 if comment.strip():
-                    db.log_action(rfp["id"], "Comment added", reviewer, comment.strip()[:80])
+                    api.log_action(rfp["id"], "Comment added", reviewer, comment.strip()[:80])
                     st.toast("Comment added.")
                 else:
                     st.toast("Type a comment first.")
                 st.rerun()
             if st.button("🔄 Regenerate Draft", use_container_width=True, key="regen_all"):
                 with st.spinner("Regenerating draft..."):
-                    result = regenerate(rfp["id"])
+                    try:
+                        result = api.regenerate(rfp["id"])
+                    except api.APIError as e:
+                        result = {"success": False, "message": str(e)}
                 if result["success"]:
                     st.toast("Draft regenerated.")
                     st.rerun()
@@ -101,7 +103,7 @@ def page_review():
 
     # --- History ---
     with card("Review History"):
-        log = db.get_audit_log(rfp["id"])
+        log = api.get_audit_log(rfp["id"])
         if log:
             st.dataframe(pd.DataFrame([{"Reviewer": a["actor"], "Action": a["action"],
                                         "Detail": a.get("detail") or "", "Time": a["timestamp"]}

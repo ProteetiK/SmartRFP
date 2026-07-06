@@ -1,15 +1,15 @@
 import streamlit as st
 from config import GROQ_MODEL
-from seed_data import seed
-from demo_seed import seed_demo_rfps
 
 ss = st.session_state
 def initialize_state():
-    # Seed knowledge base + demo RFPs ONCE per session. Combined with the persistent
-    # "demo_seeded" flag in the DB, deleting RFPs never brings the samples back.
+    # Fix note: this used to call seed_data.seed() and demo_seed.seed_demo_rfps()
+    # here, which seeded a local SQLite database with knowledge-base docs and
+    # demo RFPs every session. The backend now owns its own KB seeding
+    # (see backend/main.py's startup hook, which seeds PostgreSQL AND embeds
+    # into Pinecone) so this is no longer needed -- and would otherwise be
+    # seeding a database the live app no longer reads from.
     if "booted" not in ss:
-        seed()
-        seed_demo_rfps()
         ss.booted = True
 
     ss.setdefault("page", "Upload")

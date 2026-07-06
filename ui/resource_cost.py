@@ -1,8 +1,7 @@
 ﻿import streamlit as st
 import pandas as pd
 
-import database as db
-from ui.export import current_rfp
+from ui import api
 from ui.ui_utils import (topbar,card, current_rfp, metric, go)
 import state
 
@@ -28,12 +27,12 @@ def page_resource_cost():
     if not rfp:
         st.info("No RFPs yet. Upload one to see the cost estimate."); return
 
-    pricing = db.get_pricing(rfp["id"])
+    pricing = api.get_pricing(rfp["id"])
     # ---- Total cost: sum of Agent 2 pricing lines (dynamic, from RFP keywords) ----
     total_cost = sum(p["total"] for p in pricing) if pricing else 245680.0
 
     # ---- Effort: derived from the RFP's parsed requirements (dynamic per RFP) ----
-    num_req = rfp.get("num_requirements") or len(db.get_draft_sections(rfp["id"])) or 8
+    num_req = rfp.get("num_requirements") or len(api.get_draft_sections(rfp["id"])) or 8
     BASE_OVERHEAD_HRS = 160          # PM / setup / mobilisation
     HRS_PER_REQUIREMENT = 130        # analysis + design + build + test per requirement
     total_hours = BASE_OVERHEAD_HRS + num_req * HRS_PER_REQUIREMENT

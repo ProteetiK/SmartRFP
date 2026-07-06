@@ -1,13 +1,20 @@
 """
-test_pipeline.py
+pipeline_test.py
 ----------------
-Proves the whole backend works WITHOUT the Streamlit UI and WITHOUT a Groq key
-(it runs in demo mode). Run:  python test_pipeline.py
+Proves the whole backend works end-to-end against PostgreSQL + Pinecone +
+Groq, without the Streamlit UI. Run:
+
+    python pipeline_test.py
+
+Requires DATABASE_URL / GROQ_API_KEY / PINECONE_API_KEY to be set in .env
+(the same ones backend/main.py uses) since this exercises the real
+pipeline -- there is no SQLite/demo-mode fallback path anymore.
 """
 
 import os
-from database import init_db, create_rfp, get_rfp, get_requirements, get_draft_sections, get_pricing
-from seed_data import seed
+
+from backend.database import Base, engine, SessionLocal
+from backend import crud
 from pipeline import run_pipeline
 from utils.exporter import export_txt, export_docx, export_pdf
 
@@ -33,56 +40,66 @@ in North America.
 
 
 def main():
-    init_db()
-    seed()
+    # Ensure tables exist (mirrors backend/main.py's startup hook) --
+    # harmless no-op if the backend has already been run once.
+    Base.metadata.create_all(bind=engine)
 
-    rfp_id = create_rfp(
-        deal_name="Acme Cloud Migration — RFP-2026-118",
-        client_name="Acme Corp",
-        region="North America",
-        deadline="10 Jul 2026",
-        contact_email="bids@acme.com",
-        notes="Test run",
-        file_name="acme.txt",
-        raw_text=SAMPLE_RFP,
-        assigned_role="Senior Reviewer",
-        assigned_to="Priya S.",
-        use_web_search=True,
-    )
-    print(f"Created RFP id={rfp_id}")
+    db = SessionLocal()
+    try:
+        rfp_id = crud.create_rfp(
+            db,
+            deal_name="Acme Cloud Migration — RFP-2026-118",
+            client_name="Acme Corp",
+            region="North America",
+            deadline="10 Jul 2026",
+            contact_email="bids@acme.com",
+            notes="Test run",
+            file_name="acme.txt",
+            raw_text=SAMPLE_RFP,
+            assigned_role="Senior Reviewer",
+            assigned_to="Priya S.",
+            use_web_search=True,
+        )
+        print(f"Created RFP id={rfp_id}")
 
-    def prog(label, frac):
-        print(f"  [{int(frac*100):3d}%] {label}")
+        def prog(label, frac):
+            print(f"  [{int(frac*100):3d}%] {label}")
 
-    summary = run_pipeline(rfp_id, SAMPLE_RFP, use_web_search=True, progress=prog)
-    print("\nPipeline summary:", summary)
+        summary = run_pipeline(db, rfp_id=rfp_id, raw_text=SAMPLE_RFP,
+                               filename="acme.txt", use_web_search=True, progress=prog)
+        print("\nPipeline summary:", summary)
 
-    print("\n--- Requirements ---")
-    for r in get_requirements(rfp_id)[:5]:
-        print(f"  [{r['section']}] {r['text'][:70]}")
+        print("\n--- Requirements ---")
+        for r in crud.get_requirements(db, rfp_id)[:5]:
+            print(f"  [{r['section']}] {r['text'][:70]}")
 
-    print("\n--- Draft sections ---")
-    for s in get_draft_sections(rfp_id):
-        flag = f"  <FLAG: {s['flag_type']}>" if s['flag_type'] else ""
-        print(f"  • {s['section_title'][:60]}{flag}")
-        print(f"      {s['content'][:90]}...")
-        print(f"      source: {s['source']}")
+        print("\n--- Draft sections ---")
+        sections = crud.get_draft_sections(db, rfp_id)
+        for s in sections:
+            flag = f"  <FLAG: {s['flag_type']}>" if s['flag_type'] else ""
+            print(f"  - {s['section_title'][:60]}{flag}")
+            print(f"      {(s['content'] or '')[:90]}...")
+            print(f"      source: {s['source']}")
 
-    print("\n--- Pricing ---")
-    for p in get_pricing(rfp_id):
-        stale = " STALE" if p['stale'] else ""
-        print(f"  {p['item']:<32} ${p['total']:>12,.2f}  ({p['fetched_at']}){stale}")
+        print("\n--- Pricing ---")
+        pricing = crud.get_pricing(db, rfp_id)
+        for p in pricing:
+            stale = " STALE" if p['stale'] else ""
+            print(f"  {p['item']:<32} ${p['total']:>12,.2f}  ({p['fetched_at']}){stale}")
 
-    print("\n--- Exporting ---")
-    os.makedirs("exports", exist_ok=True)
-    for ext, fn in (("txt", export_txt), ("docx", export_docx), ("pdf", export_pdf)):
-        data = fn(rfp_id)
-        path = f"exports/acme_test.{ext}"
-        with open(path, "wb") as f:
-            f.write(data)
-        print(f"  wrote {path}  ({len(data):,} bytes)")
+        print("\n--- Exporting ---")
+        rfp = crud.get_rfp(db, rfp_id)
+        os.makedirs("exports", exist_ok=True)
+        for ext, fn in (("txt", export_txt), ("docx", export_docx), ("pdf", export_pdf)):
+            data = fn(rfp, sections, pricing)
+            path = f"exports/acme_test.{ext}"
+            with open(path, "wb") as f:
+                f.write(data)
+            print(f"  wrote {path}  ({len(data):,} bytes)")
 
-    print("\nALL GOOD ✓")
+        print("\nALL GOOD - pipeline ran end-to-end against PostgreSQL + Pinecone.")
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ missing-info) from the PRD.
 """
 
 import re
-from llm import chat
+from backend.llm import chat, LLMUnavailable
 from langsmith import traceable
 from guardrails import (
     validate_input,
@@ -93,12 +93,15 @@ def _ask(prompt, context, max_tokens=420, temperature=0.4):
     {prompt}
     """
 
-    response = chat(
-        SYSTEM,
-        user,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
+    try:
+        response = chat(
+            SYSTEM,
+            user,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+    except LLMUnavailable as exc:
+        return f"[LLM unavailable -- this section could not be generated: {exc}]"
 
     response = validate_output(response)
 
@@ -106,6 +109,9 @@ def _ask(prompt, context, max_tokens=420, temperature=0.4):
 
 
 def _flag(content, has_sources):
+    if (content or "").startswith("[LLM unavailable"):
+        return ("missing", "The AI model was unavailable when this section was drafted; "
+                "write it manually or regenerate once the LLM is reachable.", "low")
     if not has_sources:
         return ("missing", "No matching internal document found for this section.", "low")
     risky = RISKY_CLAIM.findall(content or "")
@@ -150,10 +156,6 @@ def _sec(
 )
 def generate_draft(requirements, rag_agent, pricing_lines, web_insight=None,
                    max_sections=12):
-    
-    print(">>> generate_draft entered")
-    print(type(generate_draft))
-    print(generate_draft)
     sections = []
     all_reqs = "\n".join(f"- {r['text']}" for r in requirements[:14]) or "(no requirements parsed)"
 

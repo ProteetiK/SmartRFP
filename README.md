@@ -87,109 +87,140 @@ flags / pricing, and writes `exports/acme_test.{txt,docx,pdf}`.
 
 ```
 SmartRFP/
-├── app.py                  # Main Streamlit application and UI entry point
-├── pipeline.py             # Orchestrates the end-to-end AI workflow
-├── llm.py                  # Wrapper for Groq/OpenAI LLM calls
-├── database.py             # SQLite repository used by the Streamlit application
-├── config.py               # Root configuration shared by the application
-├── evaluation.py           # Computes proposal quality and RAG evaluation metrics
-├── metrics.py              # Prometheus/LangSmith runtime metrics and counters
-├── requirements.txt        # Python package dependencies
-├── state.py                # Streamlit session state management
-├── guardrails.py           # Input/output validation and AI safety guardrails
+
+├── Dockerfile.backend  # Docker build instructions for FastAPI backend service
+├── Dockerfile.frontend # Docker build instructions for Streamlit/UI frontend
+├── Project_docs/       # Project documentation, design notes, architecture docs
+├── README.md           # Project overview, setup instructions, usage guide
+
+├── agents/             # LLM-based autonomous agents for different RFP tasks
+│   ├── __init__.py     # Marks agents as Python package
+│   ├── draft_generator.py  # Generates proposal/RFP draft sections using LLM
+│   ├── extractor.py        # Extracts structured data from RFP documents
+│   ├── pricing_agent.py    # Handles pricing estimation logic using AI
+│   └── rag_agent.py        # Retrieval-Augmented Generation agent logic
+
+├── app.py              # Entry point for UI or orchestration layer
+
+├── backend/            # Core FastAPI backend (APIs + business logic)
+│   ├── __init__.py
+│   ├── config.py       # Backend configuration (env, settings, constants)
+│   ├── crud.py         # Database CRUD operations (create/read/update/delete)
+│   ├── database.py     # DB connection setup (SQLAlchemy engine/session)
 │
-├── agents/
-│   ├── extractor.py        # Extracts requirements from uploaded RFP
-│   ├── rag_agent.py        # Retrieves relevant past knowledge/content
-│   ├── pricing_agent.py    # Generates pricing/cost information
-│   └── draft_generator.py  # Produces proposal draft using LLM
+│   ├── llm/            # LLM integration layer
+│   │   ├── __init__.py
+│   │   └── groq_client.py  # Groq LLM API client wrapper
 │
-├── ui/
-│   ├── api.py              # HTTP client for communicating with the FastAPI backend
-│   ├── dashboard.py        # Dashboard displaying RFPs, metrics and project status
-│   ├── export.py           # UI for exporting generated proposals
-│   ├── help_pg.py          # Help and user documentation page
-│   ├── llm_eval.py         # Displays LLM and RAG evaluation metrics
-│   ├── resource_cost.py    # Displays pricing and resource cost estimates
-│   ├── review.py           # Human review, approval and regeneration interface
-│   ├── settings.py         # Application configuration and environment settings page
-│   ├── upload.py           # RFP upload page and analysis workflow
-│   └── ui_utils.py         # Shared UI components, styling and helper functions
+│   ├── main.py         # FastAPI app initialization + middleware setup
+│   ├── models.py       # SQLAlchemy ORM models (tables schema definitions)
 │
-├── backend/
-│   ├── config.py           # FastAPI configuration and environment settings
-│   ├── crud.py             # SQLAlchemy CRUD operations for database access
-│   ├── database.py         # SQLAlchemy engine, sessions and database connection
-│   ├── main.py             # FastAPI application entry point and route registration
-│   ├── models.py           # SQLAlchemy ORM models representing database tables
-│   ├── schemas.py          # Pydantic request and response schemas
-│   ├── services.py         # Business logic connecting API endpoints to the pipeline
-│   ├── __init__.py         # Marks backend as a Python package
-│   └── routes/
-│       ├── dashboard.py    # Dashboard-related API endpoints
-│       ├── export.py       # Proposal export API endpoints
-│       ├── health.py       # Health check endpoint for service monitoring
-│       ├── pricing.py      # Pricing retrieval API endpoints
-│       ├── regenerate.py   # Endpoint to rerun the proposal generation pipeline
-│       ├── review.py       # Human review and approval API endpoints
-│       ├── upload.py       # RFP upload and analysis API endpoint
-│       └── __init__.py     # Marks routes as a Python package
-│── monitoring/
+│   ├── rag/            # Retrieval Augmented Generation pipeline
+│   │   ├── __init__.py
+│   │   ├── chunker.py      # Splits documents into chunks for embedding
+│   │   ├── embedding.py    # Generates embeddings for text chunks
+│   │   ├── ingestion.py    # Loads docs into vector DB pipeline
+│   │   ├── pinecone_client.py # Pinecone vector DB integration
+│   │   ├── prompt_builder.py  # Builds prompts for LLM queries
+│   │   ├── retriever.py    # Retrieves relevant chunks from vector DB
+│   │   ├── utils.py        # Helper functions for RAG pipeline
+│   │   └── vector_store.py  # Abstraction over vector database
+│
+│   ├── routes/         # API endpoints (FastAPI routers)
+│   │   ├── __init__.py
+│   │   ├── dashboard.py    # Dashboard analytics endpoints
+│   │   ├── export.py       # Export RFP results (PDF/Doc/etc.)
+│   │   ├── health.py       # Health check endpoint for monitoring
+│   │   ├── pricing.py      # Pricing-related API endpoints
+│   │   ├── regenerate.py   # Regenerate RFP sections via LLM
+│   │   ├── review.py       # Review/feedback endpoints
+│   │   └── upload.py       # Upload RFP file endpoint (core entry)
+│
+│   ├── schemas.py      # Pydantic request/response schemas
+│   ├── security.py     # Auth/security logic (if applicable)
+│
+│   ├── services/       # Business logic layer (orchestration)
+│   │   ├── __init__.py
+│   │   ├── estimation_service.py # Time/cost estimation logic
+│   │   ├── pricing_service.py    # Pricing computation logic
+│   │   └── rfp_service.py        # Core RFP processing pipeline
+│
+│   ├── services.py     # Legacy or combined service logic file
+│
+│   └── tools/          # External tool integrations
+│       ├── calculator_tool.py  # Math/calculation helper tool
+│       └── tavily_tool.py      # Web search tool (Tavily API)
+
+├── config.py           # Global configuration (shared across modules)
+├── database.py         # Shared DB utilities (possibly duplicate of backend one)
+├── demo_seed.py        # Seed script for demo/sample database data
+├── docker-compose.yml  # Multi-container setup (backend, frontend, monitoring)
+├── evaluation.py       # Evaluation metrics for model/system performance
+
+├── exports/            # Generated output files (reports, PDFs, etc.)
+
+├── guardrails.py       # Safety, validation, and LLM output constraints
+├── langsmith_utils.py  # LangSmith tracing/monitoring utilities
+├── llm.py              # General LLM wrapper utilities (possibly legacy)
+
+├── loadtest/           # Load testing scripts and reports (Locust)
+│   ├── locust_upload.py # Upload endpoint stress test script
+│   └── locustfile.py    # Main Locust load testing config
+
+├── metrics.py          # Prometheus metrics definitions/exporters
+
+├── monitoring/         # Observability stack configs
 │   └── prometheus/
-│       └── prometheus.yml  # Attches Prometheus to the project
-├── utils/
-│   ├── exporter.py         # PDF/DOCX export
-│   └── file_handler.py     # File upload/parsing
-│
-├── exports/                # Generated PDF and DOCX proposal outputs
-│
-├── smartrfp.db             # SQLite database
-│
-├── tests/                  # Automated test suite
-├── conftest.py             # Shared pytest fixtures and test configuration
-│
-├── unit/
-│   ├── test_file_handler.py    # Unit tests for document parsing utilities
-│   ├── test_database.py        # Unit tests for database operations
-│   ├── test_extractor.py       # Unit tests for requirement extraction
-│   ├── test_rag.py             # Unit tests for RAG retrieval
-│   ├── test_pricing.py         # Unit tests for pricing agent
-│   ├── test_draft.py           # Unit tests for proposal draft generation
-│   ├── test_llm.py             # Unit tests for LLM wrapper
-│   └── test_exporter.py        # Unit tests for export functionality
-│
-├── integration/
-│   ├── test_pipeline.py            # Integration tests for the complete pipeline
-│   ├── test_rag_database.py        # Tests interaction between RAG and database
-│   ├── test_pipeline_database.py   # Tests pipeline persistence to the database
-│   ├── test_draft_rag.py           # Tests draft generation using RAG context
-│   └── test_export_pipeline.py     # Tests exporting generated proposals
-│
-└── e2e/
-    ├── test_demo_pipeline.py   # End-to-end demo workflow test
-    ├── test_real_pipeline.py   # End-to-end workflow using real documents
-    └── test_ragas.py           # End-to-end evaluation using RAGAS metrics
+│       ├── Dockerfile  # Prometheus container setup
+│       └── prometheus.yml # Prometheus scrape configuration
+
+├── pipeline.py         # End-to-end RFP processing pipeline
+├── pipeline_test.py    # Pipeline testing script
+├── ragas_eval.py       # RAG evaluation using RAGAS framework
+
+├── requirements.txt    # Python dependencies list
+
+├── sampleRFPs/         # Sample RFP documents for testing/demo
+
+├── seed_data.py        # Database initialization script
+├── settings.py         # App-wide settings (env-based config loader)
+├── state.py            # Global runtime state management (if used)
+
+├── tests/              # Automated test suite
+│   ├── conftest.py     # Pytest configuration and fixtures
+│   ├── e2e/            # End-to-end tests (full workflow)
+│   │   └── test_complete_workflow.py
+│   ├── integration/    # Integration tests (modules together)
+│   │   └── test_pipeline.py
+│   └── unit/           # Unit tests (individual components)
+│       ├── test_database.py
+│       ├── test_extractor.py
+│       ├── test_file_handler.py
+│       ├── test_llm.py
+│       ├── test_pricing.py
+│       └── test_rag.py
+
+├── ui/                 # Frontend/UI layer (Streamlit or internal UI system)
+│   ├── api.py          # UI → backend API communication layer
+│   ├── dashboard.py    # UI dashboard view
+│   ├── export.py       # UI export controls
+│   ├── help_pg.py      # Help/documentation page
+│   ├── llm_eval.py     # UI for LLM evaluation metrics
+│   ├── resource_cost.py # Cost estimation visualization
+│   ├── review.py       # Review interface for RFP outputs
+│   ├── settings.py     # UI settings page
+│   ├── ui_utils.py     # UI helper functions
+│   └── upload.py       # File upload interface
+
+└── utils/              # Shared utility functions
+    ├── __init__.py
+    ├── exporter.py     # Export utilities (PDF/DOC generation)
+    └── file_handler.py # File parsing and handling utilities
 ```
 
 The SQLite file `smartrfp.db` is created automatically on first launch.
 
 ---
-
-## 5. How it maps to your architecture & PRD
-
-| Your design | This project |
-|-------------|--------------|
-| Frontend (Streamlit) | `app.py` |
-| Backend / business logic | `pipeline.py`, `database.py` |
-| LLM (OpenAI → **Groq**) | `llm.py` |
-| Orchestration (LangChain/LangGraph) | `pipeline.py` (`ThreadPoolExecutor` runs the two agents in parallel) |
-| Agent 1 — RAG retrieval | `agents/rag_agent.py` |
-| Agent 2 — Live web/pricing | `agents/pricing_agent.py` |
-| Draft Generator (F4) | `agents/draft_generator.py` |
-| Human-in-the-loop review | Review page in `app.py` |
-| Vector DB (pgvector/FAISS) | TF-IDF retrieval (see note below) |
-| Database (PostgreSQL → **SQLite**) | `database.py` |
-| Export & audit trail (F6) | `utils/exporter.py` + `audit_log` table |
 
 ### Note on the "Vector DB"
 Groq has no embeddings endpoint, and to keep the project **zero-setup** the RAG
@@ -201,7 +232,7 @@ with no model downloads. To upgrade to true semantic embeddings, swap
 
 ---
 
-## 6. Safety behaviours from the PRD
+## 5. Safety behaviours from the PRD
 - **Hallucination flag** — a draft claim (e.g. an SLA %) not found in any source is flagged.
 - **Compliance flag** — compliance/data-residency content is flagged for SME confirmation.
 - **Missing-info marker** — a requirement with no internal match is flagged, not faked.
@@ -211,7 +242,7 @@ with no model downloads. To upgrade to true semantic embeddings, swap
 
 ---
 
-## 7. Troubleshooting
+## 6. Troubleshooting
 - **`ModuleNotFoundError: No module named 'utils'` (or `'agents'`)** → you're running
   from a folder where the `utils/` and `agents/` subfolders are missing or got
   flattened. Unzip `smartrfp.zip` fresh and run `streamlit run app.py` from inside

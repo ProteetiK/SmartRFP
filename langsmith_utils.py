@@ -2,7 +2,6 @@ import os
 from typing import Optional, Dict
 from langsmith import Client
 from langsmith.run_helpers import get_current_run_tree
-import streamlit as st
 
 client = Client()
 
@@ -147,21 +146,12 @@ def get_draft_generation_latency(trace_id: str):
         "Draft Generation",
     )
 
-from typing import Optional
-from langsmith import Client
-
-client = Client()
-
-
 def get_trace_id_for_rfp(rfp_id: int) -> Optional[str]:
-    """
-    Find the latest LangSmith trace for an RFP.
-    """
+    project = os.getenv("LANGSMITH_PROJECT")
     client = Client()
-
     runs = list(
         client.list_runs(
-            project_name=os.getenv("LANGSMITH_PROJECT"),
+            project_name=project,
             is_root=True,
             limit=50,
         )
@@ -177,5 +167,5 @@ def get_trace_id_for_rfp(rfp_id: int) -> Optional[str]:
             continue
         if str(run_rfp_id) == str(rfp_id):
             return str(run.trace_id)
-            
+
     return 0

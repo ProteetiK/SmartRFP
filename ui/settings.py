@@ -3,9 +3,7 @@ import streamlit as st
 import pandas as pd
 
 import config
-import database as db
-from utils.exporter import export_txt, export_docx, export_pdf
-from llm import ping as groq_ping
+from ui import api
 import state
 from ui.ui_utils import (topbar,card)
 
@@ -83,62 +81,62 @@ def page_settings():
                 f"- **Currency:** {ss.get('currency')} (applied on Resource Cost)\n"
                 f"- **Items per page:** {ss.get('items_per_page')} (applied on Dashboard)\n"
                 f"- **Theme:** {ss.get('theme')}\n"
-                f"- **Active AI model:** {config.GROQ_MODEL}\n"
                 f"- **Confirm before export:** {'On' if ss.get('confirm_export', True) else 'Off'}")
 
-    # ---- AI Model (functional Groq panel) ----
+    # ---- AI Model (backend-driven Groq status panel) ----
+    # Fix note: this used to read config.GROQ_API_KEY / config.GROQ_MODEL and
+    # call llm.ping() directly from inside the Streamlit process -- meaning
+    # the frontend needed its own copy of GROQ_API_KEY and called Groq
+    # itself, bypassing the backend entirely. It now asks the backend's
+    # /health/llm endpoint, which is the only place that should hold that
+    # key. The frontend no longer needs (or reads) any LLM credentials.
     with tabs[1]:
-        st.markdown("<div class='card'><h3>🤖 AI / Groq Configuration</h3>", unsafe_allow_html=True)
-        key = config.GROQ_API_KEY
-        masked = (key[:6] + "…" + key[-4:]) if len(key) > 12 else ("(set)" if key else "(empty)")
+        st.markdown("<div class='card'><h3>🤖 AI Model Status</h3>", unsafe_allow_html=True)
+        status = api.llm_status()
         m1, m2 = st.columns(2)
-        m1.metric("API key", "Detected" if key else "Not found")
-        m2.metric("Active model", config.GROQ_MODEL)
-        st.caption(f"**.env file in use:** `{config.ENV_FILE or '— none found —'}`")
-        st.caption(f"**Key (masked):** `{masked}`")
+        m1.metric("Backend LLM", "Connected" if status.get("ok") else "Unavailable")
+        m2.metric("Active model", status.get("model", "?"))
+        if status.get("failover_configured"):
+            st.caption("OpenAI failover is configured on the backend.")
+        st.caption(
+            "The model is configured server-side via `GROQ_MODEL` in the backend's "
+            "`.env` -- change it there and restart the backend to switch models."
+        )
 
-        model_opts = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.6-27b",
-                      "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-        if config.GROQ_MODEL not in model_opts:
-            model_opts.insert(0, config.GROQ_MODEL)
-        chosen = st.selectbox("Model (applies immediately)", model_opts,
-                              index=model_opts.index(config.GROQ_MODEL))
-        if chosen != config.GROQ_MODEL:
-            config.GROQ_MODEL = chosen          # llm.chat()/ping() read this live
-            ss.groq_model = chosen
-            st.success(f"✅ Model switched to `{chosen}`.")
-
-        if st.button("🔌 Test Groq connection", type="primary", key="ai_test"):
-            with st.spinner("Calling Groq…"):
-                r = groq_ping()
-            (st.success if r["ok"] else st.error)(
-                ("✅ " + r["message"]) if r["ok"] else ("❌ Connection failed: " + r["message"]))
-        if not key:
-            st.warning("No API key detected — running in **demo mode** (still fully functional).")
-            with st.expander("🔎 Which env files were found?", expanded=True):
-                for p, exists in config.ENV_SEARCHED:
-                    st.markdown(f"{'✅' if exists else '❌'} `{p}`")
-            st.markdown("Create a file named exactly **`.env`** next to `app.py` with:")
-            st.code("GROQ_API_KEY=gsk_your_real_key_here\nGROQ_MODEL=openai/gpt-oss-20b")
+        if st.button("🔌 Test backend LLM connection", type="primary", key="ai_test"):
+            with st.spinner("Asking the backend to call Groq…"):
+                status = api.llm_status()
+            (st.success if status.get("ok") else st.error)(
+                ("✅ " + status.get("message", "")) if status.get("ok")
+                else ("❌ Connection failed: " + status.get("message", "")))
+        if not status.get("ok"):
+            st.warning(
+                "The backend could not reach Groq. Check `GROQ_API_KEY` / `GROQ_MODEL` "
+                "in the backend's `.env` and that the backend process was restarted "
+                "after any change."
+            )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='card'><h3>📚 Knowledge Base ({}) </h3>".format(db.kb_count()),
+        kb = api.get_kb_docs()
+        st.markdown("<div class='card'><h3>📚 Knowledge Base ({}) </h3>".format(api.kb_count()),
                     unsafe_allow_html=True)
-        for d_ in db.get_kb_docs():
-            st.markdown(f"- **{d_['title']}** · *{d_['doc_type']}*")
+        for d_ in kb:
+            indexed = " ✅ indexed in Pinecone" if d_.get("pinecone_indexed") else " ⏳ not yet searchable"
+            st.markdown(f"- **{d_['title']}** · *{d_['doc_type']}*{indexed}")
         with st.expander("➕ Add a knowledge-base document"):
             t = st.text_input("Title", key="kbt"); dt = st.text_input("Type", "reference", key="kbdt")
             ct = st.text_area("Content", key="kbc", height=100)
             if st.button("Add document", key="kbadd") and t and ct:
-                db.add_kb_doc(t, dt, ct); st.success("Added."); st.rerun()
+                api.add_kb_doc(t, dt, ct); st.success("Added — indexing into Pinecone now."); st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     with tabs[2]:
         st.markdown("<div class='card'><h3>🛡️ Data & Privacy</h3>", unsafe_allow_html=True)
-        st.caption("Manage RFP data stored locally in SQLite (smartrfp.db).")
-        for r in db.list_rfps():
+        st.caption("Manage RFP data stored in PostgreSQL. Uploaded document content "
+                   "is also embedded into Pinecone under a per-RFP namespace.")
+        for r in api.list_rfps():
             c = st.columns([5, 1])
             c[0].write(f"{r['deal_name']} — {r['status']}")
             if c[1].button("Delete", key=f"del_{r['id']}"):
-                db.delete_rfp(r["id"]); st.rerun()
+                api.delete_rfp(r["id"]); st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)

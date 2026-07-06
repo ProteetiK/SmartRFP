@@ -1,13 +1,10 @@
 ﻿import streamlit as st
 from datetime import date
-import database as db
 from ui.ui_utils import (topbar, go)
 from config import (SUPPORTED_TYPES, MAX_UPLOAD_MB, REVIEWER_ROLES)
 from utils.file_handler import extract_text
-from .api import upload_rfp
+from ui import api
 import state
-import os
-import requests
 # =========================================================================== #
 #  PAGE: Upload
 # =========================================================================== #
@@ -25,14 +22,14 @@ def page_upload():
         client = c2.text_input("Client name", placeholder="e.g. Acme Corp")
         c3, c4, c5 = st.columns(3)
         region = c3.text_input("Region", placeholder="e.g. North America")
-        
+
         deadline = c4.date_input(
             "Deadline",
             min_value=date.today()
         )
         role = c5.selectbox("Assign reviewer role", REVIEWER_ROLES)
         use_web = st.checkbox("Use live web search / pricing (Agent 2)", value=True)
-    
+
     analyze = st.button(
         "⚡ Analyze & Generate Response",
         type="primary",
@@ -73,37 +70,37 @@ def page_upload():
                 "This document doesn't appear to be an RFP. "
                 "Analysis may not produce the expected results."
             )
-        rid = db.create_rfp(deal or up.name, client, region, deadline, "", "",
-                            up.name, raw, role, "", use_web)
-        print("=== Local DB Inserted ===")
-        bar = st.progress(0.0, text="Starting…")
+
+        bar = st.progress(0.0, text="Uploading to backend…")
+        rid = None
         try:
-            url = os.getenv("BACKEND_URL") + "/health"
-
-            print("Calling:", url)
-
-            r = requests.get(url, timeout=10)
-
-            print(r.status_code)
-            print(r.text)
-            print("=== Calling FastAPI ===")
-            result = upload_rfp(
-                uploaded_file=up,
+            result = api.upload_rfp(
+                filename=up.name,
+                file_bytes=up.getvalue(),
                 deal_name=deal,
                 client_name=client,
                 region=region,
-                deadline=deadline,
+                deadline=deadline.isoformat() if deadline else "",
                 assigned_role=role,
                 use_web_search=use_web,
             )
             bar.progress(1.0, text="Completed")
             rid = result["rfp_id"]
-            print("=== FastAPI Returned ===")
+        except api.APIError as e:
+            bar.empty()
+            st.error(f"Analysis failed: {e}")
+            return
         except Exception as e:
-            st.error(str(e))
-            print(str(e))
+            bar.empty()
+            st.error(
+                f"Could not reach the SmartRFP backend at "
+                f"`{__import__('os').getenv('SMARTRFP_API_URL', 'http://localhost:8000')}`. "
+                f"Is it running? ({e})"
+            )
+            return
         finally:
             bar.empty()
+
         st.success("✅ Analysis complete. Opening Dashboard…")
         go("Dashboard", rid)
 
@@ -117,7 +114,7 @@ def page_upload():
                     f"✅ Maximum file size: {MAX_UPLOAD_MB}MB</div></div>", unsafe_allow_html=True)
     with g2:
         rows = ""
-        for r in db.list_rfps()[:4]:
+        for r in api.list_rfps()[:4]:
             rows += (f"<div class='feed'><div class='fi ic-red'>📕</div><div style='flex:1'>"
                      f"<div class='ft'>{r['file_name'] or r['deal_name']}</div>"
                      f"<div class='fd'>{(r.get('updated_at') or '')[:10]}</div></div></div>")

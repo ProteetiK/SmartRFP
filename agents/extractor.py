@@ -14,7 +14,7 @@ Either way you get: [{"section": "...", "text": "..."}, ...]
 
 import json
 import re
-from llm import chat, llm_available
+from backend.llm import chat, llm_available, LLMUnavailable
 
 REQUIREMENT_HINTS = re.compile(
     r"\b(must|shall|should|require|required|provide|describe|demonstrate|"
@@ -99,8 +99,11 @@ def _llm_extract(text: str, max_items: int = 40):
 def extract_requirements(text: str, max_items: int = 40):
     """Public entry point used by the pipeline."""
     if llm_available():
-        result = _llm_extract(text, max_items)
-        if result:
-            return result
+        try:
+            result = _llm_extract(text, max_items)
+            if result:
+                return result
+        except LLMUnavailable:
+            pass
     # heuristic path (also the no-key default)
     return _heuristic_extract(text, max_items)

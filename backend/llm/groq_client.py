@@ -158,18 +158,3 @@ def chat(system_prompt: str, user_prompt: str,
             raise LLMUnavailable(_reason(exc)) from exc
     finally:
         LLM_LATENCY.observe(time.perf_counter() - start)
-
-
-def llm_status() -> dict:
-    if not settings.GROQ_API_KEY:
-        return {"ok": False, "model": settings.GROQ_MODEL,
-                "message": "No GROQ_API_KEY configured."}
-    try:
-        reply = chat("You are a health check.", "Reply with the word: ok",
-                     temperature=0.0, max_tokens=5)
-        return {"ok": True, "model": settings.GROQ_MODEL,
-                "message": f"Connected. Model replied: {reply[:40]!r}",
-                "failover_configured": get_failover_llm() is not None}
-    except Exception as exc:  # noqa: BLE001
-        LLM_ERRORS.inc()
-        return {"ok": False, "model": settings.GROQ_MODEL, "message": str(exc)}

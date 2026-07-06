@@ -28,7 +28,7 @@ from settings import settings
 from backend.database import Base, engine, get_db
 from backend import models, crud
 from backend.services import analyze_rfp, regenerate_pipeline, human_review
-from backend.llm.groq_client import llm_status
+from ui import api
 from backend.security import limiter, require_api_key, require_role
 from guardrails import GuardrailViolation
 from metrics import AUTH_FAILURES, RATE_LIMIT_REJECTIONS
@@ -191,7 +191,7 @@ def health():
 
 @app.get("/health/llm")
 def health_llm():
-    return llm_status()
+    return api.llm_status()
 
 
 @app.get("/health/ready")

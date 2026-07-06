@@ -3,6 +3,7 @@ import requests
 import streamlit as st
 
 BASE = os.getenv("SMARTRFP_API_URL", "http://localhost:8000").rstrip("/")
+st.write(BASE)
 TIMEOUT = 600  # analysis can take a while (embeddings + several LLM calls)
 API_KEY = os.getenv("SMARTRFP_API_KEY", "")
 

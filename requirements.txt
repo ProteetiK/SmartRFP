@@ -21,7 +21,7 @@ pydantic
 datasets
 ragas
 # Optional: enables real live web insights in Agent 2 if TAVILY_API_KEY is set
-# tavily-python==0.5.0
+tavily-python==0.5.0
 slowapi 
 sqlalchemy
 psycopg2-binary
@@ -46,3 +46,4 @@ numpy
 requests
 httpx
 tqdm
+locust

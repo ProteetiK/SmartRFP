@@ -4,10 +4,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 def similarity(a: str, b: str) -> float:
-    """
-    Compute cosine similarity between two text strings using TF-IDF.
-    Returns a score between 0 and 1.
-    """
     if not a or not b:
         return 0.0
 
@@ -20,11 +16,6 @@ def similarity(a: str, b: str) -> float:
 
 
 def groq_faithfulness(question, answer, contexts):
-    """
-    LLM-based judge using Groq ONLY for faithfulness.
-    Returns score 0-1.
-    """
-
     context_text = "\n".join(contexts)
 
     system_prompt = (
@@ -49,8 +40,6 @@ Return ONLY a number between 0 and 1:
 
     try:
         resp = chat(system_prompt, user_prompt, temperature=0)
-
-        # extract numeric score safely
         score = float(resp.strip().split()[0])
         return max(0.0, min(1.0, score))
     except Exception:

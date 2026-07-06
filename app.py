@@ -1,13 +1,3 @@
-"""
-app.py — SmartRFP
-=================
-Streamlit front end styled to match the SmartRFP design mockups:
-Upload, Dashboard, Resource Cost, Human Review, Export, Settings, Help & Docs.
-
-This is a pure HTTP client of the FastAPI backend (see ui/api.py) --
-PostgreSQL, Pinecone, and the Groq/OpenAI LLM calls all live server-side.
-The frontend holds no database connection and no LLM API keys.
-"""
 import streamlit as st
 
 from ui.dashboard import page_dashboard
@@ -200,8 +190,6 @@ div[data-testid="stDataFrame"]{ border:1px solid var(--line); border-radius:12px
 </style>
 """, unsafe_allow_html=True)
 
-# Dynamic theme (Settings → Application Preferences). Dark mode is opt-in; the
-# default Light theme keeps the blue/white look with black text.
 if ss.get("theme") == "Dark":
     st.markdown("""
     <style>

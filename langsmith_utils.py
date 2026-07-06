@@ -11,7 +11,6 @@ client = Client()
 # ----------------------------------------------------------
 
 def _duration(run) -> Optional[float]:
-    """Return duration in seconds."""
     if not run.start_time or not run.end_time:
         return None
 
@@ -26,18 +25,10 @@ def _duration(run) -> Optional[float]:
 # ----------------------------------------------------------
 
 def get_current_pipeline_run():
-    """
-    Returns the currently executing LangSmith RunTree.
-    """
     return get_current_run_tree()
 
 
 def get_current_trace_id() -> Optional[str]:
-    """
-    Returns the current LangSmith trace id while the
-    pipeline is executing.
-    """
-
     run = get_current_run_tree()
 
     if run is None:
@@ -47,10 +38,6 @@ def get_current_trace_id() -> Optional[str]:
 
 
 def get_current_pipeline_latency() -> Optional[float]:
-    """
-    Returns latency of the current pipeline while it is executing.
-    """
-
     run = get_current_run_tree()
 
     if run is None:
@@ -64,27 +51,9 @@ def get_current_pipeline_latency() -> Optional[float]:
 # ----------------------------------------------------------
 
 def get_trace_latencies(trace_id: str) -> Dict[str, float]:
-    """
-    Given a stored LangSmith trace id, returns
-
-    {
-        "SmartRFP Pipeline": 7.42,
-        "Pricing Agent": 0.88,
-        "Requirement Extraction": 1.11,
-        "Draft Generation": 4.91,
-        ...
-    }
-
-    This is intended for the Streamlit evaluation page.
-    """
-
     latencies = {}
 
     try:
-        #
-        # IMPORTANT:
-        # Replace the argument below depending on your LangSmith version.
-        #
         runs = list(
             client.list_runs(
                 trace_id=trace_id,
@@ -109,12 +78,6 @@ def get_latency(
     trace_id: str,
     run_name: str,
 ) -> Optional[float]:
-    """
-    Convenience helper.
-
-    Example:
-        get_latency(trace_id, "Pricing Agent")
-    """
 
     return get_trace_latencies(trace_id).get(run_name)
 

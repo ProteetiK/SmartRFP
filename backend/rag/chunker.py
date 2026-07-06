@@ -1,14 +1,3 @@
-"""
-Production Document Chunker for SmartRFP
-
-Responsibilities
-----------------
-1. Split extracted document text into semantic chunks
-2. Preserve metadata
-3. Support configurable chunk size & overlap
-4. Return LangChain Document objects
-"""
-
 from typing import List, Dict, Optional
 
 from langchain_core.documents import Document
@@ -46,21 +35,6 @@ class DocumentChunker:
         text: str,
         metadata: Optional[Dict] = None,
     ) -> List[Document]:
-        """
-        Convert raw text into LangChain Documents.
-
-        Parameters
-        ----------
-        text : str
-            Full extracted text.
-
-        metadata : dict
-            Document metadata.
-
-        Returns
-        -------
-        List[Document]
-        """
 
         metadata = metadata or {}
 
@@ -92,17 +66,11 @@ class DocumentChunker:
         self,
         documents: List[Document],
     ) -> List[Document]:
-        """
-        Split LangChain Documents into smaller chunks.
-        """
 
         return self.text_splitter.split_documents(documents)
 
     @staticmethod
     def statistics(chunks: List[Document]) -> Dict:
-        """
-        Return useful chunk statistics.
-        """
 
         if not chunks:
             return {

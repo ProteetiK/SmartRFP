@@ -1,14 +1,3 @@
-"""
-seed_data.py
-------------
-Populates the internal knowledge base (the documents Agent 1 / RAG searches).
-Run once:  python seed_data.py
-It is also called automatically on first app launch if the KB is empty.
-
-In a real deployment these would be your company's past winning proposals,
-templates, compliance clauses, solution docs, product catalog, and case studies.
-"""
-
 from database import init_db, kb_count, add_kb_doc
 
 SAMPLE_DOCS = [

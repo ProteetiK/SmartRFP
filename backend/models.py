@@ -1,10 +1,3 @@
-"""
-backend/models.py — the ONE place ORM models live (no models/ package).
-
-Single source of truth for the PostgreSQL schema. `ResourceRate` is included
-here too, so `from backend.models import ResourceRate` works and there is no
-models.py-vs-models/ clash.
-"""
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Float, ForeignKey, Integer,
     Numeric, String, Text, func,
@@ -32,7 +25,7 @@ class RFP(Base):
     num_requirements = Column(Integer, default=0)
     num_flags = Column(Integer, default=0)
     use_web_search = Column(Integer, default=1)
-    error_message = Column(Text)          # set when a pipeline run fails
+    error_message = Column(Text)  
     created_at = Column(String)
     updated_at = Column(String)
 
@@ -92,10 +85,6 @@ class EvaluationMetrics(Base):
     requirements_extracted = Column(Integer)
     runtime_seconds = Column(Float)
     knowledge_documents = Column(Integer)
-    # How many distinct documents Pinecone retrieval actually returned for
-    # this proposal's grounding — the direct, visible explanation for why
-    # faithfulness/precision/recall/hit-rate/MRR are 0 when retrieval found
-    # nothing, instead of that looking like an unexplained evaluation bug.
     retrieved_docs_count = Column(Integer, nullable=True, default=0)
     pricing_items = Column(Integer)
     llm_calls = Column(Integer)
@@ -108,30 +97,16 @@ class EvaluationMetrics(Base):
     hit_rate = Column(Float)
     chunk_overlap = Column(Float)
     evaluated_at = Column(String)
-    # RAGAS (LLM-judged) scores — filled in asynchronously after the fast
-    # deterministic pass above, see ragas_eval.py. Nullable: absent until the
-    # background evaluation completes.
     ragas_faithfulness = Column(Float, nullable=True)
     ragas_answer_relevancy = Column(Float, nullable=True)
     ragas_context_precision = Column(Float, nullable=True)
     ragas_context_recall = Column(Float, nullable=True)
     ragas_evaluated_at = Column(String, nullable=True)
-    # Lifecycle/observability for the async RAGAS job (production addition):
-    # lets the UI show "RAGAS: running" vs "failed: <reason>" instead of an
-    # indefinitely-blank score, and lets ops see retry counts without
-    # grepping logs.
     ragas_status = Column(String, nullable=True, default="pending")  # pending|running|completed|failed|skipped
     ragas_error = Column(String, nullable=True)
     ragas_attempts = Column(Integer, nullable=True, default=0)
-    # Set true if any RAGAS or deterministic score fell below its configured
-    # quality threshold (settings.py) — surfaced in the UI/API and audit log
-    # so a human reviewer is prompted even if hallucination_flags is 0.
     below_threshold = Column(Integer, nullable=True, default=0)
     threshold_notes = Column(String, nullable=True)
-    # JSON-encoded {"Requirement Extraction": 1.23, "Draft Generation (LLM)": 4.56, ...}
-    # — real per-stage wall-clock times measured in pipeline.py, not estimated.
-    # Stored as JSON text (not one column per stage) so stage names can
-    # change/expand over time without a schema migration each time.
     stage_latencies_json = Column(String, nullable=True)
     rfp = relationship("RFP", back_populates="evaluations")
 
@@ -142,10 +117,6 @@ class KnowledgeBase(Base):
     title = Column(String)
     doc_type = Column(String)
     content = Column(Text)
-    # Whether this doc has been embedded into the shared Pinecone
-    # knowledge-base namespace (see backend/rag/ingestion.py::ingest_kb_document).
-    # Lets a one-time backfill (/kb/sync-pinecone) find docs added before
-    # that wiring existed, or that failed to embed for some reason.
     pinecone_indexed = Column(Integer, nullable=True, default=0)
 
 

@@ -1,15 +1,3 @@
-"""
-Production Vector Store
-
-Responsibilities
-----------------
-1. Upsert vectors into Pinecone (batched, retried, metadata-sanitized)
-2. Semantic similarity search
-3. Delete vectors (serverless-safe: namespace drop or ID-prefix)
-4. Metadata filtering
-5. Namespace support
-"""
-
 from __future__ import annotations
 
 import logging
@@ -30,14 +18,6 @@ from backend.rag.utils import (
 logger = logging.getLogger("smartrfp.rag")
 
 UPSERT_BATCH_SIZE = 100
-# How long to wait for freshly-upserted vectors to become queryable before
-# giving up and proceeding anyway (non-fatal — see _wait_until_queryable).
-# Pinecone serverless upserts are usually near-instant, but a brief
-# propagation delay is possible, especially on a namespace's very first
-# write. Without this wait, retrieval immediately after ingestion (exactly
-# the upload -> draft-generation flow) could race the index and see 0
-# vectors even though the upsert call itself succeeded — this was a real,
-# hard-to-reproduce cause of "0 documents retrieved" right after upload.
 UPSERT_READY_MAX_WAIT_SECONDS = 3.0
 UPSERT_READY_POLL_INTERVAL_SECONDS = 0.5
 
@@ -91,16 +71,6 @@ class VectorStore:
         return total
 
     def _wait_until_queryable(self, namespace: str, expected_min: int) -> None:
-        """Poll describe_index_stats() until the namespace reports at least
-        `expected_min` vectors, or give up after UPSERT_READY_MAX_WAIT_SECONDS.
-
-        Non-fatal by design: if this times out (or the stats call itself
-        fails), we log and return anyway rather than blocking ingestion
-        indefinitely or turning an eventual-consistency delay into a hard
-        failure. Retrieval immediately afterward may still occasionally see
-        a partial view, but the common case (near-instant Pinecone
-        serverless propagation) is now actually waited for instead of raced.
-        """
         deadline = time.monotonic() + UPSERT_READY_MAX_WAIT_SECONDS
         last_seen = 0
         while time.monotonic() < deadline:
@@ -175,13 +145,6 @@ class VectorStore:
     # ------------------------------------------------------------------ #
 
     def delete_rfp(self, rfp_id: str, namespace: Optional[str] = None):
-        """
-        Delete every vector for an RFP.
-
-        Default strategy: drop the RFP's dedicated namespace (serverless-safe,
-        single API call). If a shared namespace is passed explicitly, fall back
-        to ID-prefix deletion (also serverless-safe).
-        """
         if namespace is None:
             self.pinecone.delete_namespace(rfp_namespace(rfp_id))
         else:

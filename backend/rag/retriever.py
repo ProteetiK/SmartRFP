@@ -1,14 +1,3 @@
-"""
-Retriever for SmartRFP
-
-Responsibilities
-----------------
-1. Retrieve relevant chunks from Pinecone
-2. Apply score threshold
-3. Build context for the LLM
-4. Support metadata filtering + per-RFP namespaces
-"""
-
 from __future__ import annotations
 
 import logging
@@ -32,9 +21,6 @@ class Retriever:
     ):
         self.vector_store = VectorStore()
         self.top_k = top_k or settings.RAG_TOP_K
-        # Configurable via RAG_SCORE_THRESHOLD (settings.py) instead of
-        # hardcoded, so it can be tuned per-deployment/embedding-model
-        # without a code change.
         self.score_threshold = (
             score_threshold if score_threshold is not None else settings.RAG_SCORE_THRESHOLD
         )
@@ -60,14 +46,6 @@ class Retriever:
         namespaces: List[str],
         metadata_filter: Optional[Dict] = None,
     ) -> List[Document]:
-        """Query several namespaces with the same embedding and merge into a
-        single ranked, threshold-filtered result set capped at top_k overall.
-
-        Used to search an RFP's own namespace AND the shared knowledge-base
-        namespace together, so retrieval draws on both the just-uploaded
-        document and the persistent organizational corpus instead of only
-        ever seeing the current RFP in isolation.
-        """
         all_docs: List[Document] = []
         for ns in namespaces:
             all_docs.extend(self.vector_store.similarity_search(
@@ -83,10 +61,6 @@ class Retriever:
             if doc.metadata.get("score", 0) >= self.score_threshold
         ]
         if documents and not filtered:
-            # Distinguishes "genuinely nothing indexed" from "results exist
-            # but all scored below threshold" — the latter usually means the
-            # query text is a poor semantic match for the indexed content
-            # (e.g. too generic/broad), not that ingestion failed.
             top_scores = sorted((d.metadata.get("score", 0) for d in documents), reverse=True)[:3]
             logger.info(
                 "Retriever: %s returned %d result(s) but none met "
@@ -102,7 +76,6 @@ class Retriever:
         rfp_id: str | int,
         metadata_filter: Optional[Dict] = None,
     ) -> List[Document]:
-        """Convenience: retrieve strictly within one RFP's namespace."""
         return self.retrieve(
             query=query,
             namespace=rfp_namespace(rfp_id),

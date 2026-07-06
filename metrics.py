@@ -6,10 +6,6 @@ from prometheus_client import (
 )
 
 def _metric(factory, name, description):
-    """
-    Create metric if it doesn't exist.
-    Otherwise return the already-registered metric.
-    """
     try:
         return factory(name, description)
     except ValueError:

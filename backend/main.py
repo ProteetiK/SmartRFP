@@ -6,9 +6,6 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 if os.getenv("LANGCHAIN_TRACING_V2", "").lower() == "true" and not os.getenv("LANGCHAIN_API_KEY", "").strip():
-    # Half-configured tracing causes every @traceable call to hit LangSmith,
-    # fail auth in the background, and log noise that looks like an app
-    # error. Since it's optional observability, disable it cleanly instead.
     os.environ["LANGCHAIN_TRACING_V2"] = "false"
     logging.getLogger("smartrfp.api").warning(
         "LANGCHAIN_TRACING_V2=true but LANGCHAIN_API_KEY is not set — "
@@ -49,10 +46,6 @@ logger = logging.getLogger("smartrfp.api")
 
 app = FastAPI(title="SmartRFP API", version="2.0.0")
 
-# ---------------------------------------------------------------------- #
-# Startup safety check — refuse to boot with an unsafe production config
-# instead of silently running with open CORS / no auth.
-# ---------------------------------------------------------------------- #
 if settings.ENVIRONMENT == "production":
     if "*" in settings.ALLOWED_ORIGINS:
         raise RuntimeError(
@@ -73,12 +66,6 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 @app.middleware("http")
 async def _security_headers_middleware(request: Request, call_next):
-    """Baseline security headers on every response. This is defense-in-depth,
-    NOT a substitute for a real WAF/CDN (Cloudflare, Azure Front Door, AWS
-    WAF+CloudFront) — those operate at the network edge, can absorb DDoS
-    traffic before it reaches this process, and do request-pattern-based
-    threat detection this application-level middleware cannot. Put one of
-    those in front of this service in any real production deployment."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -102,8 +89,6 @@ async def guardrail_violation_handler(request: Request, exc: GuardrailViolation)
 
 @app.middleware("http")
 async def _auth_metrics_middleware(request: Request, call_next):
-    """Count auth/rate-limit rejections for observability even though the
-    actual enforcement happens in the require_api_key dependency / limiter."""
     response = await call_next(request)
     if response.status_code == 401:
         AUTH_FAILURES.inc()
@@ -125,9 +110,6 @@ SEED_KB = [
 
 
 def _migrate_columns(table_name: str, new_cols: dict):
-    """create_all() only creates missing tables, not missing columns on an
-    already-existing table. Add new columns in-place if this is an upgrade
-    of an existing database (no-op on a fresh DB)."""
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
     if table_name not in inspector.get_table_names():
@@ -158,10 +140,6 @@ def _migrate_ragas_columns():
 
 
 def _ingest_kb_doc_safe(kb_id: int, title: str, doc_type: str, content: str) -> bool:
-    """Embed a KB doc into Pinecone; logs and returns False on failure
-    instead of raising, so a Pinecone hiccup never breaks the /kb write or
-    app startup — the doc still exists in Postgres and can be picked up
-    later by /kb/sync-pinecone."""
     try:
         from backend.rag.ingestion import DocumentIngestion
         DocumentIngestion().ingest_kb_document(kb_id, title, doc_type, content)
@@ -175,7 +153,6 @@ def _ingest_kb_doc_safe(kb_id: int, title: str, doc_type: str, content: str) -> 
 
 @app.on_event("startup")
 def _startup():
-    # Importing models registered them on Base.metadata.
     Base.metadata.create_all(bind=engine)
     _migrate_ragas_columns()
     from backend.database import SessionLocal
@@ -188,12 +165,6 @@ def _startup():
                     crud.mark_kb_indexed(db, kb_id)
             logger.info("Seeded %d knowledge-base documents.", len(SEED_KB))
 
-        # Always sweep for any KB doc that exists in Postgres but was never
-        # successfully embedded into Pinecone — covers docs added before
-        # this wiring existed (this app's pre-existing KB rows) or that
-        # failed to embed at write time (e.g. a transient Pinecone error).
-        # Runs on every startup, not just first boot, so it self-heals
-        # without requiring a manual POST /kb/sync-pinecone call.
         pending = crud.get_kb_docs_unindexed(db)
         if pending:
             logger.info("Found %d KB doc(s) not yet indexed in Pinecone; syncing...", len(pending))
@@ -236,12 +207,6 @@ def health_ready():
 
 @app.get("/debug/retrieval/{rfp_id}")
 def debug_retrieval(rfp_id: int, db: Session = Depends(get_db), _auth: str = Depends(require_api_key)):
-    """Real, live diagnostic for 'why is retrieval returning 0 documents'.
-    Reports actual Pinecone vector counts for this RFP's namespace and the
-    shared KB namespace, plus the RAW (pre-threshold) similarity scores for
-    the exact query draft_generator.py would use — so a genuine ingestion/
-    connectivity problem is distinguishable from a threshold-tuning issue,
-    without grepping server logs."""
     from backend.rag.vector_store import VectorStore
     from backend.rag.utils import rfp_namespace, KB_NAMESPACE
 
@@ -308,11 +273,6 @@ def debug_retrieval(rfp_id: int, db: Session = Depends(get_db), _auth: str = Dep
 
 @app.get("/metrics")
 def metrics():
-    """Prometheus scrape endpoint. Intentionally NOT behind API-key auth so
-    the Prometheus server (internal network only, per docker-compose) can
-    scrape it directly — lock this down at the network/firewall level in
-    real deployments (it is not exposed publicly by the provided compose
-    file: only the `prometheus` service can reach it on the docker network)."""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -387,10 +347,6 @@ def get_pricing(rfp_id: int, db: Session = Depends(get_db), _auth: str = Depends
 
 @app.get("/evaluation/{rfp_id}")
 def get_evaluation(rfp_id: int, db: Session = Depends(get_db), _auth: str = Depends(require_api_key)):
-    # Resilient read: if the evaluation_metrics table is missing the ragas_*
-    # columns (e.g. the backend wasn't restarted after they were added), the
-    # SELECT raises. Self-heal by running the migration and retrying once, and
-    # NEVER return a 500 for a read — the UI must not crash during a demo.
     try:
         return crud.get_evaluation_metrics(db, rfp_id) or {}
     except Exception:
@@ -459,9 +415,6 @@ def kb(db: Session = Depends(get_db), _auth: str = Depends(require_api_key)):
     return {
         "count": crud.kb_count(db),
         "docs": docs,
-        # Honest accounting: how many of these Postgres rows are ACTUALLY
-        # searchable by the RAG pipeline right now, vs. just stored for
-        # display. Call POST /kb/sync-pinecone to close any gap.
         "indexed_in_pinecone": indexed,
         "not_yet_searchable": crud.kb_count(db) - indexed,
     }
@@ -484,10 +437,6 @@ def add_kb(body: KBDoc, db: Session = Depends(get_db), _role: str = Depends(requ
 
 @app.post("/kb/sync-pinecone")
 def sync_kb_to_pinecone(db: Session = Depends(get_db), _role: str = Depends(require_role("admin"))):
-    """One-time (or periodic) backfill: embed any KB doc that exists in
-    Postgres but was never successfully embedded into Pinecone — covers
-    docs added before this wiring existed, or that failed to embed at write
-    time. Safe to call repeatedly; already-indexed docs are skipped."""
     pending = crud.get_kb_docs_unindexed(db)
     succeeded, failed = 0, 0
     for doc in pending:
@@ -522,10 +471,6 @@ def export(rfp_id: int, fmt: str = "pdf", db: Session = Depends(get_db), _auth: 
     safe = "".join(ch if ch.isalnum() else "_" for ch in rfp["deal_name"])[:40] or "proposal"
     filename = f"{safe}.{fmt}"
 
-    # Persist server-side. Non-fatal: a disk/permissions problem must not
-    # break the export the user is actively waiting on — they still get
-    # their file, just without a saved server copy this time (logged so
-    # it's visible in monitoring, not silent).
     try:
         export_dir = os.path.join(settings.EXPORTS_DIR, str(rfp_id))
         os.makedirs(export_dir, exist_ok=True)
@@ -546,9 +491,6 @@ def export(rfp_id: int, fmt: str = "pdf", db: Session = Depends(get_db), _auth: 
 
 @app.get("/export/{rfp_id}/history")
 def export_history(rfp_id: int, db: Session = Depends(get_db), _auth: str = Depends(require_api_key)):
-    """List previously-saved server-side export files for this RFP, newest
-    first. Reflects settings.EXPORTS_DIR on disk — the actual source of
-    truth — not just the audit log."""
     export_dir = os.path.join(settings.EXPORTS_DIR, str(rfp_id))
     if not os.path.isdir(export_dir):
         return {"exports": []}

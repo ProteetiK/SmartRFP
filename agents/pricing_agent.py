@@ -1,18 +1,3 @@
-"""
-agents/pricing_agent.py  (Agent 2 - Live Pricing & Cost Intelligence)
---------------------------------------------------------------------
-The PRD describes Agent 2 as fetching live pricing/cost data at draft time and
-flagging stale numbers instead of inventing them (Scenario B).
-
-This implementation returns deterministic, timestamped pricing derived from the
-RFP content so the whole pipeline runs with NO external API key. It also
-demonstrates the "stale price" safety flag from the PRD.
-
-Hooks for real data:
-  * Set TAVILY_API_KEY in .env to additionally pull a live web insight (optional).
-  * Replace _mock_pricing() with calls to your real pricing REST APIs.
-"""
-
 import os
 import random
 from datetime import datetime, timedelta
@@ -24,7 +9,6 @@ from metrics import (
     PRICING_ITEMS,
 )
 
-# A tiny rate card used to build a realistic, deterministic estimate.
 RATE_CARD = {
     "cloud":      ("Compute / Cloud SKU (x12)", 12, 17833.0, "pricing-api"),
     "migration":  ("Migration Labor (480 hrs)", 480, 400.0, "pricing-api"),
@@ -41,14 +25,12 @@ def _keywords_in(text: str):
     return [k for k in RATE_CARD if k in t]
 
 def _mock_pricing(rfp_id: int, rfp_text: str):
-    """Build pricing lines based on keywords found in the RFP text."""
     now = datetime.now()
     keys = _keywords_in(rfp_text) or []
     lines = []
 
     chosen = keys[:4] if keys else []
     if not chosen:
-        # nothing matched -> at least give a base estimate line
         item, qty, unit, src = DEFAULT_LINE
         lines.append(_line(item, qty, unit, src, now, stale=False))
     else:
@@ -58,7 +40,6 @@ def _mock_pricing(rfp_id: int, rfp_text: str):
             stale = (i == len(chosen) - 1 and len(chosen) >= 2)
             lines.append(_line(item, qty, unit, src, now, stale=stale))
 
-    # Add a margin line (18%) computed on the subtotal of non-stale items
     subtotal = sum(l["total"] for l in lines if not l["stale"])
     margin = round(subtotal * 0.18, 2)
     lines.append(_line("Margin (18%)", "-", margin, "pricing-api", now, stale=False,
@@ -84,7 +65,6 @@ def _line(item, qty, unit_price, source, now, stale=False, precomputed_total=Non
     }
 
 def _optional_web_insight(rfp_text: str):
-    """If TAVILY_API_KEY is set, fetch one live web insight. Otherwise return None."""
     key = os.getenv("TAVILY_API_KEY", "").strip()
     if not key:
         return None
@@ -107,9 +87,6 @@ def fetch_pricing(rfp_id: int, rfp_text: str, parent_run=None):
         parent=parent_run,
     ):
         PRICING_REQUESTS.inc()
-        """
-        Public entry point. Returns (pricing_lines, web_insight_or_None).
-        """
         lines = _mock_pricing(rfp_id, rfp_text)
         insight = _optional_web_insight(rfp_text)
         PRICING_ITEMS.observe(len(lines))

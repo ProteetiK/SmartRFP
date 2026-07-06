@@ -1,16 +1,3 @@
-"""
-pipeline_test.py
-----------------
-Proves the whole backend works end-to-end against PostgreSQL + Pinecone +
-Groq, without the Streamlit UI. Run:
-
-    python pipeline_test.py
-
-Requires DATABASE_URL / GROQ_API_KEY / PINECONE_API_KEY to be set in .env
-(the same ones backend/main.py uses) since this exercises the real
-pipeline -- there is no SQLite/demo-mode fallback path anymore.
-"""
-
 import os
 
 from backend.database import Base, engine, SessionLocal
@@ -40,8 +27,6 @@ in North America.
 
 
 def main():
-    # Ensure tables exist (mirrors backend/main.py's startup hook) --
-    # harmless no-op if the backend has already been run once.
     Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()

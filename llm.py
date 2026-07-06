@@ -1,17 +1,3 @@
-"""
-llm.py
-------
-Thin wrapper around the Groq chat API.
-
-Key design choice: if no GROQ_API_KEY is set (or a call fails), we fall back to
-a deterministic "demo mode" so the WHOLE app still runs and produces sensible
-output without any key. Add your key in .env to get real LLM-written drafts.
-
-Unlike a silent fallback, this version remembers the last Groq error and exposes
-ping()/groq_status() so the Settings page can tell you *exactly* why a key is
-not working (invalid key, decommissioned model, network, quota, etc.).
-"""
-
 import config
 
 import time
@@ -26,12 +12,11 @@ from metrics import (
 )
 
 _client = None
-_last_error = ""          # human-readable reason the last Groq call failed
-_used_demo = False        # True if the most recent chat() used the demo fallback
+_last_error = "" 
+_used_demo = False  
 
 
 def _get_client():
-    """Construct (once) and return a Groq client, or None if no key/SDK."""
     global _client, _last_error
     if _client is not None:
         return _client
@@ -49,8 +34,6 @@ def _get_client():
 
 
 def llm_available() -> bool:
-    """True if a key is present and the client object constructs.
-    NOTE: this does not guarantee the key/model actually work — use ping()."""
     return _get_client() is not None
 
 
@@ -63,12 +46,6 @@ def used_demo() -> bool:
 
 
 def ping() -> dict:
-    """
-    Make a tiny real API call to verify the key AND model actually work.
-    Returns: {ok: bool, model: str, message: str}
-    The message carries the real Groq error text when ok is False — this is what
-    tells you whether the problem is the key, the model name, quota, or network.
-    """
     global _last_error
     if not config.GROQ_API_KEY:
         return {"ok": False, "model": config.GROQ_MODEL,
@@ -97,10 +74,6 @@ def ping() -> dict:
 )
 def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
          max_tokens: int = 900) -> str:
-    """
-    Send a single-turn chat to Groq and return the text.
-    Falls back to _demo_response() if Groq is unavailable or errors.
-    """
     global _last_error, _used_demo
     client = _get_client()
     LLM_REQUESTS.inc()
@@ -136,7 +109,6 @@ def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
         print(
             f"[LLM] Failed after {elapsed:.2f}s : {e}"
         )
-        # Network / model / quota error -> don't crash the pipeline
         _last_error = str(e)
         _used_demo = True
         print(f"[llm] Groq call failed, using demo fallback: {e}")
@@ -146,10 +118,6 @@ def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
 
 
 def _demo_response(user_prompt: str, error: str = "") -> str:
-    """
-    Deterministic, source-grounded draft used when Groq is unavailable.
-    It echoes back the retrieved context so the pipeline output is meaningful.
-    """
     context = ""
     if "CONTEXT:" in user_prompt:
         context = user_prompt.split("CONTEXT:", 1)[1].strip()

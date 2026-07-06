@@ -1,28 +1,3 @@
-"""
-agents/draft_generator.py  (Feature F4 - Draft Generator / synthesis)
---------------------------------------------------------------------
-Combines Agent 1 (internal RAG context) + Agent 2 (pricing/web) into a
-structured proposal draft that mirrors a real RFP response document, using the
-same section structure as the reference proposal:
-
-    Executive Summary
-    Company Overview
-    Understanding of Requirements
-    Proposed Technical Solution
-    Implementation Plan
-    Security
-    Deliverables
-    Timeline
-    Pricing
-    Conclusion
-
-Prose sections are written by the LLM (grounded in retrieved context); the
-structural sections (Implementation Plan, Deliverables, Timeline) use clean
-deterministic content so the output always looks right, even in demo mode.
-Each section carries the reviewer safety flags (compliance / hallucination /
-missing-info) from the PRD.
-"""
-
 import re
 from backend.llm import chat, LLMUnavailable
 from langsmith import traceable

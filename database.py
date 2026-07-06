@@ -1,18 +1,3 @@
-"""
-database.py
------------
-All SQLite access lives here. Plain sqlite3 (no ORM) to keep dependencies light
-and the code easy to read for a capstone review.
-
-Tables
-  rfps           -> one row per uploaded RFP + client details + status + metrics
-  requirements   -> extracted requirements per RFP (from F1 parser)
-  draft_sections -> generated draft sections + sources + flags (from F4)
-  pricing        -> live/mock pricing line items (from Agent 2)
-  knowledge_base -> internal documents the RAG agent searches (Agent 1)
-  audit_log      -> who did what, when (human-in-the-loop trail)
-"""
-
 import sqlite3
 from datetime import datetime
 from config import DB_PATH
@@ -297,10 +282,6 @@ def get_pricing(rfp_id):
 
 # Evaluation Metrics
 def save_evaluation_metrics(rfp_id, metrics):
-    """
-    Store evaluation metrics for an RFP.
-    """
-
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     conn = get_conn()

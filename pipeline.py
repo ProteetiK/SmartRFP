@@ -1,14 +1,3 @@
-"""
-pipeline.py
------------
-The orchestration layer (the "LangGraph" role in the PRD diagram, implemented
-plainly so it is easy to follow):
-
-    ingest (Pinecone) -> parse (F1) -> [ Agent 1 RAG-ready || Agent 2 Pricing ]
-    -> synthesize (F4) -> evaluate (deterministic + RAGAS-style) -> persist
-
-"""
-
 from concurrent.futures import ThreadPoolExecutor
 import time
 
@@ -43,9 +32,6 @@ logger.setLevel(logging.INFO)
 
 
 class Repository:
-    """Thin, session-bound wrapper around backend.crud. PostgreSQL only --
-    a `session` is required (no more SQLite fallback)."""
-
     def __init__(self, session):
         if session is None:
             raise ValueError("Repository requires a SQLAlchemy session (PostgreSQL). "
@@ -84,11 +70,6 @@ class Repository:
 
 
 def _ingest_rfp_document(rfp_id, raw_text, filename):
-    """Embed the just-uploaded RFP into its own Pinecone namespace so RAG
-    retrieval has something of the RFP's own content to ground on, not just
-    the shared knowledge base. Non-fatal: a Pinecone hiccup here should not
-    block requirement extraction or pricing -- retrieval will just fall back
-    to whatever the KB namespace has, same as before this existed."""
     try:
         DocumentIngestion().reindex_document(
             text=raw_text, rfp_id=rfp_id, filename=filename or f"rfp_{rfp_id}",
@@ -99,12 +80,6 @@ def _ingest_rfp_document(rfp_id, raw_text, filename):
 
 
 def _apply_ragas_gate(repo, rfp_id, evaluation: dict):
-    """Compare the evaluation's faithfulness/relevancy/precision/recall
-    scores against settings.EVAL_MIN_* and mirror them into the ragas_*
-    columns + below_threshold flag. These columns and crud functions
-    (update_evaluation_metrics/set_ragas_status/flag_below_threshold) already
-    existed but nothing ever called them, so RAGAS status/thresholds were
-    always blank in the UI -- this is what actually wires them up."""
     try:
         repo.update_evaluation(rfp_id, {
             "ragas_faithfulness": evaluation.get("faithfulness", 0),
@@ -132,8 +107,6 @@ def _apply_ragas_gate(repo, rfp_id, evaluation: dict):
             repo.flag_below_threshold(
                 rfp_id, "Below configured quality threshold: " + "; ".join(breaches))
     except Exception:
-        # Never let evaluation bookkeeping fail the whole pipeline run --
-        # the draft itself already saved successfully by this point.
         logger.exception("RAGAS threshold gating failed for rfp_id=%s", rfp_id)
         try:
             repo.set_ragas_status(rfp_id, "failed", error="threshold gating raised an exception")
@@ -146,12 +119,6 @@ def _apply_ragas_gate(repo, rfp_id, evaluation: dict):
     run_type="chain",
 )
 def run_pipeline(db, rfp_id, raw_text, filename=None, use_web_search=True, progress=None):
-    """Execute the full end-to-end flow for one RFP against PostgreSQL.
-
-    `db` is a required SQLAlchemy Session (see backend.database.SessionLocal).
-    `progress` is an optional callable(step_label, fraction) for UI updates.
-    Returns a summary dict.
-    """
     repo = Repository(db)
     logger.info("********** PIPELINE STARTED **********")
     print("********** PIPELINE STARTED **********")
@@ -195,9 +162,6 @@ def run_pipeline(db, rfp_id, raw_text, filename=None, use_web_search=True, progr
 
             with ThreadPoolExecutor(max_workers=2) as ex:
                 parent_run = get_current_run_tree()
-                # Agent 2 (pricing/web) runs in its own thread. Agent 1's
-                # actual retrieval work happens lazily, section-by-section,
-                # inside generate_draft() below.
                 pricing_future = ex.submit(fetch_pricing, rfp_id, raw_text, parent_run)
                 pricing_lines, web_insight = pricing_future.result()
 
@@ -288,9 +252,6 @@ def run_pipeline(db, rfp_id, raw_text, filename=None, use_web_search=True, progr
 
 
 class _StageTimer:
-    """
-    Records timing and logs every pipeline stage.
-    """
 
     def __init__(self, name, sink: dict):
         self.name = name

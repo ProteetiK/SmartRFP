@@ -28,10 +28,6 @@ EXPECTED_SECTIONS = {
 
 
 def similarity(a, b):
-    """
-    Safe cosine similarity using TF-IDF.
-    """
-
     if not a or not b:
         return 0.0
 

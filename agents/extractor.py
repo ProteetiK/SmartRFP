@@ -1,17 +1,3 @@
-"""
-agents/extractor.py  (Feature F1 - RFP Parser & Requirement Extractor)
----------------------------------------------------------------------
-Turns the cleaned RFP text into a list of answerable requirements.
-
-Two paths:
-  1. If a Groq key is set, ask the LLM to extract structured requirements (JSON).
-  2. Otherwise (or on failure), use a robust heuristic parser that splits the
-     document and keeps requirement-like sentences (must / shall / should /
-     required / questions / numbered items).
-
-Either way you get: [{"section": "...", "text": "..."}, ...]
-"""
-
 import json
 import re
 from backend.llm import chat, llm_available, LLMUnavailable
@@ -29,19 +15,16 @@ SECTION_HEADER = re.compile(r"^\s*(\d+(\.\d+)*)[\).]?\s+(.{3,80})$")
 def _heuristic_extract(text: str, max_items: int = 40):
     requirements = []
     current_section = "General"
-    # Split into candidate lines / sentences
     for raw_line in text.split("\n"):
         line = raw_line.strip()
         if not line:
             continue
 
-        # Detect a section header like "3.2 Security Requirements"
         m = SECTION_HEADER.match(line)
         if m and len(line.split()) <= 10:
             current_section = line
             continue
 
-        # Break long lines into sentences
         sentences = re.split(r"(?<=[.?!])\s+", line)
         for s in sentences:
             s = s.strip()
@@ -52,7 +35,6 @@ def _heuristic_extract(text: str, max_items: int = 40):
                 if len(requirements) >= max_items:
                     return requirements
 
-    # Fallback: if nothing matched, chunk the doc into pseudo-requirements
     if not requirements:
         chunks = [c.strip() for c in re.split(r"\n\s*\n", text) if len(c.strip()) > 40]
         for i, ch in enumerate(chunks[:max_items], 1):
@@ -82,7 +64,6 @@ def _llm_extract(text: str, max_items: int = 40):
         f"Group them by their section if visible.\n\nRFP TEXT:\n{text[:6000]}"
     )
     out = chat(system, user, temperature=0.0, max_tokens=1500)
-    # Strip any accidental code fences
     out = out.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     try:
         data = json.loads(out)
@@ -97,7 +78,6 @@ def _llm_extract(text: str, max_items: int = 40):
 
 
 def extract_requirements(text: str, max_items: int = 40):
-    """Public entry point used by the pipeline."""
     if llm_available():
         try:
             result = _llm_extract(text, max_items)
@@ -105,5 +85,4 @@ def extract_requirements(text: str, max_items: int = 40):
                 return result
         except LLMUnavailable:
             pass
-    # heuristic path (also the no-key default)
     return _heuristic_extract(text, max_items)

@@ -1,4 +1,3 @@
-"""Pricing Service — internal resource rates from PostgreSQL."""
 from typing import Optional
 from sqlalchemy.orm import Session
 from backend.models import ResourceRate

@@ -1,7 +1,3 @@
-"""
-RFP-level services used by the API layer. These own a DB session, create the
-RFP row, run the pipeline, and return plain dicts.
-"""
 from fastapi import UploadFile
 
 from backend.database import SessionLocal

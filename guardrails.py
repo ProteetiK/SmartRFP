@@ -1,10 +1,3 @@
-# guardrails.py — production-level input/output guardrails.
-#
-# Scope & honesty note: these are deterministic, regex/heuristic guardrails —
-# fast, dependency-free, and fully auditable. They are NOT an ML content
-# classifier. For higher-assurance moderation, put a hosted moderation API
-# (e.g. OpenAI moderation, Azure Content Safety) in front of this layer; this
-# module is designed so that's a drop-in addition (see `moderate()` below).
 from __future__ import annotations
 
 import logging
@@ -26,10 +19,6 @@ MAX_OUTPUT = 7000
 # ---------------------------------------------------------------------------
 # Prompt-injection detection
 # ---------------------------------------------------------------------------
-# Broader than a single-phrase list: several small pattern families instead of
-# one exact-match list, so mild paraphrases ("please disregard the above
-# instructions") are still caught. Still deterministic/auditable — every hit
-# is logged with which pattern matched.
 _INJECTION_PATTERNS = [
     re.compile(r"\bignore\s+(all\s+)?(the\s+)?(previous|prior|above)\s+instructions?\b", re.I),
     re.compile(r"\bforget\s+(all\s+)?(the\s+)?(previous|prior|above)\s+instructions?\b", re.I),
@@ -66,8 +55,6 @@ _HALLUCINATION_TERMS = [
 
 
 class GuardrailViolation(ValueError):
-    """Raised when input fails a guardrail check. Carries the rule that fired
-    so callers/logs can distinguish 'too long' from 'injection attempt'."""
 
     def __init__(self, message: str, rule: str):
         super().__init__(message)
@@ -76,8 +63,6 @@ class GuardrailViolation(ValueError):
 
 @dataclass
 class GuardrailReport:
-    """Structured result for output-side checks, so callers/UI can show
-    *why* a section was flagged instead of a bare boolean."""
     redacted_secrets: list = field(default_factory=list)
     pii_redactions: dict = field(default_factory=dict)
     hallucination_terms: list = field(default_factory=list)
@@ -88,11 +73,6 @@ class GuardrailReport:
 # Input side
 # ---------------------------------------------------------------------------
 def validate_input(text: str) -> str:
-    """Validate + normalize untrusted input before it reaches a prompt.
-
-    Raises GuardrailViolation (never a bare ValueError) so callers can
-    distinguish guardrail rejections from other errors and log/metric them.
-    """
     if not text or not text.strip():
         raise GuardrailViolation("Empty input.", rule="empty_input")
 
@@ -114,7 +94,6 @@ def validate_input(text: str) -> str:
 
 
 def remove_pii(text: str) -> str:
-    """Redact PII in-place, tracking counts per category for observability."""
     if not text:
         return text
     for label, pattern in _PII_PATTERNS.items():
@@ -128,8 +107,6 @@ def remove_pii(text: str) -> str:
 # Output side
 # ---------------------------------------------------------------------------
 def validate_output(text: str, report: "GuardrailReport | None" = None) -> str:
-    """Sanitize LLM output before it is shown/persisted. Optionally fills a
-    GuardrailReport with what was found, for audit logging."""
     if report is None:
         report = GuardrailReport()
 
@@ -157,10 +134,6 @@ def detect_hallucination(text: str) -> list:
 
 
 def moderate(text: str) -> GuardrailReport:
-    """Single entry point combining PII redaction + hallucination flagging on
-    a piece of text, returning a report. Kept separate from validate_output
-    so a future hosted moderation call can be inserted here without touching
-    every call site."""
     report = GuardrailReport()
     cleaned = remove_pii(text)
     report.hallucination_terms = detect_hallucination(cleaned)

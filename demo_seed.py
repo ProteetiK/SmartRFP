@@ -1,16 +1,6 @@
-"""
-demo_seed.py
-------------
-Populates a few sample RFPs the first time the app runs so the Dashboard,
-Resource Cost, Human Review and Export pages look populated (like the design
-mockups) instead of empty. Runs only when there are zero RFPs. You can delete
-these any time from Settings → Manage RFPs.
-"""
-
 from datetime import datetime, timedelta
 import database as db
 
-# (deal, client, region, status, role, num_req, num_flags, days_ago)
 _DEMO = [
     ("Healthcare RFP", "ABC Healthcare", "US", "In Review", "Supervisor", 7, 3, 0),
     ("Core Banking RFP", "Global Bank", "EU", "Drafting", "Senior Reviewer", 9, 2, 1),
@@ -109,13 +99,11 @@ def _meta_set(conn, key, value):
 
 
 def seed_demo_rfps():
-    # Seed the sample RFPs exactly once. After that, never re-seed — so when the
-    # user deletes every RFP (including the last one) the dashboard stays empty.
     conn = db.get_conn()
     if _meta_get(conn, "demo_seeded"):
         conn.close()
         return False
-    if db.list_rfps():            # data from an older build: mark as seeded, don't duplicate
+    if db.list_rfps(): 
         _meta_set(conn, "demo_seeded", 1)
         conn.close()
         return False
@@ -129,14 +117,12 @@ def seed_demo_rfps():
                             "", "", deal.replace(" ", "_") + ".pdf",
                             "Sample RFP text for demo purposes.", role, "", True)
         db.update_rfp_metrics(rid, nreq, nflag, status)
-        # backdate timestamps so "Last Updated" looks realistic
         ts = (now - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
         conn = db.get_conn()
         conn.execute("UPDATE rfps SET created_at=?, updated_at=? WHERE id=?",
                      (ts, ts, rid))
         conn.commit()
         conn.close()
-        # sections + pricing so Review/Export/Resource pages are populated
         db.save_draft_sections(rid, [
             {"section_title": t, "content": c, "source": s,
              "flag_type": f, "flag_note": None, "confidence": conf}

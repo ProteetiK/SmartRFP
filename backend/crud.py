@@ -1,10 +1,3 @@
-"""
-backend/crud.py — every DB operation, session-based (PostgreSQL only).
-
-All functions take a SQLAlchemy Session as the first argument. Return values
-are plain dicts / lists of dicts (via _to_dict) so the API layer and anything
-else can serialize them directly without touching ORM internals.
-"""
 from datetime import datetime
 
 from sqlalchemy import inspect
@@ -197,9 +190,6 @@ def save_evaluation_metrics(db: Session, rfp_id, metrics):
 
 
 def get_evaluation_metrics(db: Session, rfp_id):
-    """Returns the evaluation row as a plain dict, with stage_latencies_json
-    already decoded into a `stage_latencies` dict for convenience (API/UI
-    consumers shouldn't have to know it's stored as a JSON string)."""
     import json as _json
     d = _to_dict(
         db.query(models.EvaluationMetrics)
@@ -216,10 +206,6 @@ def get_evaluation_metrics(db: Session, rfp_id):
 
 
 def update_evaluation_metrics(db: Session, rfp_id, patch: dict):
-    """Merge a partial dict of fields into the existing evaluation row.
-    Used by ragas_eval.py to attach LLM-judged scores once they're ready,
-    without disturbing the fast deterministic metrics saved at pipeline time.
-    """
     row = (db.query(models.EvaluationMetrics)
            .filter(models.EvaluationMetrics.rfp_id == rfp_id).first())
     if not row:
@@ -232,10 +218,6 @@ def update_evaluation_metrics(db: Session, rfp_id, patch: dict):
 
 
 def set_ragas_status(db: Session, rfp_id, status: str, error: str = None, attempts: int = None):
-    """Track the async RAGAS job's lifecycle (pending/running/completed/
-    failed/skipped) so the UI can show real state instead of an
-    indefinitely-blank score, and ops can see retry counts without grepping
-    logs."""
     row = (db.query(models.EvaluationMetrics)
            .filter(models.EvaluationMetrics.rfp_id == rfp_id).first())
     if not row:
@@ -249,9 +231,6 @@ def set_ragas_status(db: Session, rfp_id, status: str, error: str = None, attemp
 
 
 def flag_below_threshold(db: Session, rfp_id, notes: str):
-    """Mark this RFP's evaluation as having breached a configured quality
-    threshold (e.g. RAGAS faithfulness too low) even when the deterministic
-    hallucination-term scan found nothing — prompts human review either way."""
     row = (db.query(models.EvaluationMetrics)
            .filter(models.EvaluationMetrics.rfp_id == rfp_id).first())
     if not row:
@@ -277,9 +256,6 @@ def get_kb_docs(db: Session):
 
 
 def get_kb_docs_unindexed(db: Session):
-    """KB docs never (successfully) embedded into Pinecone — used by the
-    one-time /kb/sync-pinecone backfill for docs added before KB ingestion
-    existed, or that failed to embed at write time."""
     rows = db.query(models.KnowledgeBase).filter(
         (models.KnowledgeBase.pinecone_indexed == 0) | (models.KnowledgeBase.pinecone_indexed.is_(None))
     ).all()

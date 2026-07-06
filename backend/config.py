@@ -1,6 +1,3 @@
-"""
-backend/config.py — single source of truth for configuration.
-"""
 import os
 from functools import lru_cache
 from typing import Annotated, Dict, List
@@ -15,10 +12,6 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
-        # Production `.env` files evolve faster than this class — an unknown
-        # key should never crash startup. (This is exactly what used to
-        # happen: pydantic-settings defaults to extra="forbid", and the
-        # shipped .env has ~20 keys this class didn't declare.)
         extra="ignore",
     )
 
@@ -64,11 +57,6 @@ class Settings(BaseSettings):
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
 
     # ---- API security -------------------------------------------------------
-    # Raw comma-separated string from the environment, e.g.
-    #   API_KEYS=abc123,def456:reviewer,ghi789:viewer
-    # A bare key with no ":role" suffix is "admin" (full access), so a
-    # pre-RBAC single-key setup keeps working unchanged. Parsed into a
-    # {key: role} dict by the validator below.
     API_KEYS: Annotated[Dict[str, str], NoDecode] = {}
     REQUIRE_AUTH: bool = False
 
@@ -102,7 +90,6 @@ class Settings(BaseSettings):
     EXPORTS_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "exports")
 
     # ---- Grafana (docker-compose only; read here so it's never an "extra"
-    # validation error, even though the backend itself doesn't use it) -----
     GRAFANA_ADMIN_USER: str = "admin"
     GRAFANA_ADMIN_PASSWORD: str = ""
 
@@ -138,8 +125,6 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _default_require_auth(self):
-        """REQUIRE_AUTH defaults to true in production, false elsewhere,
-        unless explicitly set via the environment."""
         raw = os.getenv("REQUIRE_AUTH")
         if raw is None or raw.strip() == "":
             object.__setattr__(self, "REQUIRE_AUTH", self.ENVIRONMENT == "production")

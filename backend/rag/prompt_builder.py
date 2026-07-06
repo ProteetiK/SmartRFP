@@ -1,15 +1,3 @@
-"""
-Prompt Builder for SmartRFP
-
-Responsibilities
-----------------
-1. Build prompts for RAG
-2. Inject retrieved context
-3. Keep prompts reusable
-4. Support proposal generation
-"""
-
-
 class PromptBuilder:
 
     @staticmethod

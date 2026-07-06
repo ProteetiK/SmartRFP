@@ -1,14 +1,3 @@
-"""
-Embedding Service for SmartRFP
-
-Responsibilities
-----------------
-1. Load embedding model only once (singleton)
-2. Generate document embeddings (batched)
-3. Generate query embeddings
-4. Report embedding dimension from config
-"""
-
 from __future__ import annotations
 
 import logging
@@ -19,15 +8,10 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 from backend.config import settings
 
-# This model (all-MiniLM-L6-v2) is public — downloading it without an HF_TOKEN
-# is expected and safe. huggingface_hub logs a warning that reads alarmingly
-# like an auth failure ("sending unauthenticated requests..."); it isn't one,
-# so we drop it to WARNING->ERROR level instead of hiding a real problem.
 logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
 
 class EmbeddingService:
-    """Wrapper around HuggingFace embeddings."""
 
     def __init__(
         self,
@@ -56,11 +40,9 @@ class EmbeddingService:
 
     @property
     def dimension(self) -> int:
-        """Embedding dimension (must match the Pinecone index dimension)."""
         return self._dimension
 
 
 @lru_cache(maxsize=1)
 def get_embedding_service() -> EmbeddingService:
-    """Singleton — loads the model only once per process."""
     return EmbeddingService()

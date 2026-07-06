@@ -1,14 +1,3 @@
-"""
-utils/exporter.py
------------------
-Feature F6 (Output): export the approved RFP response to DOCX, PDF, or TXT.
-Each function returns raw bytes so the API/Streamlit download button can
-serve them.
-
-Includes: deal/client header, every draft section with sources & flags,
-the pricing table, and an audit summary.
-"""
-
 import io
 from datetime import datetime
 
@@ -19,7 +8,6 @@ from fpdf.enums import XPos, YPos
 
 
 def _sanitize(text):
-    """Make text safe for fpdf core fonts (latin-1) by replacing fancy unicode."""
     if text is None:
         return ""
     replacements = {
@@ -197,5 +185,5 @@ def export_pdf(rfp, sections, pricing) -> bytes:
             mc(6, f"{p['item']}{flag}  |  qty {p['qty']}  |  ${p['total']:,.2f}  "
                   f"|  {p['fetched_at']} - {p['source']}")
 
-    out = pdf.output()  # fpdf2 returns a bytearray
+    out = pdf.output()
     return bytes(out)

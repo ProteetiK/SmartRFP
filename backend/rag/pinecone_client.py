@@ -1,16 +1,3 @@
-"""
-Pinecone Client Manager
-
-Responsibilities
-----------------
-1. Connect to Pinecone
-2. Create index if it doesn't exist AND wait until it's ready
-3. Return Pinecone Index object
-4. Delete by ID prefix / by namespace (serverless-safe)
-5. Health check
-6. Singleton implementation
-"""
-
 from __future__ import annotations
 
 import logging
@@ -84,7 +71,6 @@ class PineconeManager:
         logger.info("Pinecone index '%s' created.", self.index_name)
 
     def _wait_until_ready(self):
-        """A freshly created index is not immediately queryable. Poll status."""
         deadline = time.time() + INDEX_READY_TIMEOUT_SECONDS
 
         while time.time() < deadline:
@@ -119,10 +105,6 @@ class PineconeManager:
     # ------------------------------------------------------------------ #
 
     def delete_namespace(self, namespace: str):
-        """
-        Delete an entire namespace. Fully supported and cheap on serverless.
-        Swallows 404 (namespace already gone / never existed).
-        """
         try:
             self.index.delete(delete_all=True, namespace=namespace)
         except Exception as exc:  # noqa: BLE001
@@ -132,14 +114,8 @@ class PineconeManager:
             raise
 
     def delete_by_id_prefix(self, prefix: str, namespace: str):
-        """
-        Delete every vector whose id starts with `prefix` within a namespace.
-        This is the serverless-approved replacement for delete-by-metadata.
-        """
         ids_batch: List[str] = []
         for ids in self.index.list(prefix=prefix, namespace=namespace):
-            # index.list yields either a list of ids or single ids depending
-            # on SDK version; normalize.
             batch = ids if isinstance(ids, list) else [ids]
             ids_batch.extend(batch)
 
@@ -174,5 +150,4 @@ class PineconeManager:
 
 @lru_cache(maxsize=1)
 def get_pinecone_manager() -> PineconeManager:
-    """Singleton Pinecone Manager."""
     return PineconeManager()

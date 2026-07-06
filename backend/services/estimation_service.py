@@ -1,4 +1,3 @@
-"""Estimation Service — thin orchestrator over pricing + tools + retrieval."""
 from backend.services.pricing_service import PricingService
 from backend.tools.calculator_tool import PricingCalculator
 from backend.tools.tavily_tool import TavilyTool

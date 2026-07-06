@@ -1,23 +1,3 @@
-"""
-backend/llm/groq_client.py — production LLM client with failover + tracing.
-
-Production posture (no demo mode, no fabricated content):
-  - get_llm()   -> singleton ChatGroq for the agents (RAG, pricing).
-  - chat(...)   -> plain-text helper for extractor / draft generator. Traced
-                   end-to-end with LangSmith (@traceable) and instrumented
-                   with Prometheus metrics (latency, errors, provider used).
-  - llm_status()-> {"ok": bool, "model": str, "message": str} for health checks.
-
-Failover: if OPENAI_API_KEY is configured and LLM_FAILOVER_ENABLED is true,
-a Groq failure (rate limit, timeout, 5xx) automatically retries once against
-OpenAI before falling back to the caller's own heuristic/deterministic path.
-This removes the single-vendor dependency without requiring OpenAI to be
-configured — the app runs identically with only Groq set.
-
-On failure of ALL configured providers, chat() raises LLMUnavailable with a
-clear reason. Callers turn that into a failed-run status / fallback text —
-we never invent proposal content.
-"""
 import logging
 import time
 from functools import lru_cache
@@ -33,12 +13,11 @@ logger = logging.getLogger("smartrfp.llm")
 
 try:
     from groq import RateLimitError, APIStatusError, APIError
-except Exception:  # noqa: BLE001
+except Exception:
     RateLimitError = APIStatusError = APIError = Exception
 
 
 class LLMUnavailable(RuntimeError):
-    """Raised when no configured LLM provider can serve a request."""
 
 
 @lru_cache(maxsize=1)
@@ -59,8 +38,6 @@ def get_llm() -> ChatGroq:
 
 @lru_cache(maxsize=1)
 def get_failover_llm():
-    """Secondary provider (OpenAI), lazily constructed only if configured.
-    Returns None if failover isn't configured/enabled — callers must check."""
     if not settings.LLM_FAILOVER_ENABLED or not settings.OPENAI_API_KEY:
         return None
     try:
@@ -107,8 +84,6 @@ def _is_too_large(exc: Exception) -> bool:
 
 
 def _is_retryable_for_failover(exc: Exception) -> bool:
-    """Only fail over for transient/capacity issues, not for prompts that are
-    genuinely malformed (those would fail on the second provider too)."""
     text = str(exc).lower()
     return (
         isinstance(exc, (RateLimitError, APIStatusError, APIError))
@@ -121,10 +96,6 @@ def _is_retryable_for_failover(exc: Exception) -> bool:
 @traceable(name="LLM Chat Call", run_type="llm")
 def chat(system_prompt: str, user_prompt: str,
          temperature: float = 0.3, max_tokens: int = 900) -> str:
-    """Single-turn system+user chat -> plain text. Traced with LangSmith and
-    instrumented with Prometheus. Tries Groq first; on a transient failure,
-    fails over to OpenAI if configured; raises LLMUnavailable if both fail.
-    """
     LLM_REQUESTS.inc()
     start = time.perf_counter()
 
@@ -156,8 +127,7 @@ def chat(system_prompt: str, user_prompt: str,
             return result
         except LLMUnavailable:
             raise
-        except Exception as exc:  # noqa: BLE001
-            # Auto-shrink-and-retry once for oversized payloads (same provider).
+        except Exception as exc:
             if _is_too_large(exc) and len(user_prompt) > 500:
                 logger.warning("chat() payload too large (%d chars) — retrying with a "
                                 "shrunk prompt.", len(user_prompt))
@@ -171,7 +141,6 @@ def chat(system_prompt: str, user_prompt: str,
 
             LLM_PROVIDER_REQUESTS.labels(provider="groq", outcome="error").inc()
 
-            # Failover to OpenAI for transient/capacity errors only.
             if _is_retryable_for_failover(exc) and get_failover_llm() is not None:
                 logger.warning("Groq failed (%s) — failing over to OpenAI (%s).",
                                 exc, settings.OPENAI_MODEL)
@@ -192,7 +161,6 @@ def chat(system_prompt: str, user_prompt: str,
 
 
 def llm_status() -> dict:
-    """Cheap real call to verify key + model. Used by the /health/llm endpoint."""
     if not settings.GROQ_API_KEY:
         return {"ok": False, "model": settings.GROQ_MODEL,
                 "message": "No GROQ_API_KEY configured."}

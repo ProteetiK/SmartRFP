@@ -18,7 +18,7 @@ except Exception:
 
 
 class LLMUnavailable(RuntimeError):
-
+    """Raised when no configured LLM provider can serve a request."""
 
 @lru_cache(maxsize=1)
 def get_llm() -> ChatGroq:

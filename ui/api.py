@@ -128,7 +128,7 @@ def llm_status():
     except Exception as exc:
         return {
             "ok": False,
-            "model": "?",
+            "model": "llama-3.1-8b-instant",
             "message": str(exc),
         }
 

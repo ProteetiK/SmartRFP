@@ -90,37 +90,7 @@ def page_resource_cost():
             cost_rows.append({"Role": "Total", "Effort (hrs)": total_hours,
                               f"Cost ({code})": f"{sym}{total_cost:,.0f}", "% of Total": "100%"})
         df = pd.DataFrame(cost_rows)
-        # styled = (
-        #     df.style
-        #       .set_properties(**{
-        #           "background-color": "#f3fefe",
-        #           "color": "black"
-        #       })
-        #       .set_table_styles([
-        #         {
-        #             "selector": "th",
-        #             "props": [
-        #                 ("background-color", "#dafbfd"),  # Header background
-        #                 ("color", "black"),               # Header text
-        #                 ("font-weight", "bold"),
-        #                 ("text-align", "center"),
-        #             ],
-        #         },
-        #     ])
-        # )
         st.dataframe(df, use_container_width=True, hide_index=True)
-
-    with card("Resource Allocation"):
-        for name, cpct, apct in sorted(shown, key=lambda r: -r[2]):
-            bar = int(apct * 100)
-            st.markdown(
-                f"<div style='display:flex;align-items:center;gap:.8rem;margin:.35rem 0'>"
-                f"<div style='width:150px;font-size:.9rem;color:var(--ink2)'>{name}</div>"
-                f"<div style='width:90px;font-size:.85rem;color:var(--muted)'>{int(total_hours*apct)} hrs</div>"
-                f"<div style='flex:1;background:#eef2f7;border-radius:6px;height:10px'>"
-                f"<div style='width:{bar}%;background:var(--blue);height:10px;border-radius:6px'></div></div>"
-                f"<div style='width:54px;text-align:right;font-weight:700;color:var(--ink)'>{apct*100:.1f}%</div>"
-                f"</div>", unsafe_allow_html=True)
 
     st.info("This estimate is AI-generated based on the RFP requirements and historical data. "
             "Please review and adjust as needed.")

@@ -10,7 +10,6 @@ from ui.llm_eval import page_llm_eval
 from ui.help_pg import page_help
 from ui.ui_utils import go
 from ui import api
-from ui import api
 from config import APP_NAME
 import state
 from PIL import Image
@@ -94,7 +93,7 @@ with st.sidebar:
         return api.llm_status()
 
     llm_status = cached_llm_status()
-    live = bool()
+    live = api.llm_status()
     st.markdown(
         f"<div class='groq'><div class='row'><span class='dot {'' if live else 'off'}'></span>"
         f"Groq API Status</div><div class='st {'' if live else 'off'}'>"

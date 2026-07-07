@@ -37,7 +37,7 @@ def _xlsx_export(rfp):
 FORMATS = [("PDF", "📕", "Best for sharing and printing"),
            ("Word (DOCX)", "📘", "Editable Word document"),
            ("Excel (XLSX)", "📗", "Cost & resource data only"),
-           ("PowerPoint (PPTX)", "📙", "Executive summary presentation"),
+           ("PowerPoint (PPTX)", "📙", "Summary presentation"),
            ("HTML", "🌐", "Web-friendly format"),
            ("Text (TXT)", "📄", "Plain text format")]
 

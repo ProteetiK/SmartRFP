@@ -31,9 +31,8 @@ def page_dashboard():
     metric(cols[4], "ic-teal", "📤", "Exported", exported, "This month")
     st.write("")
 
-    left, right = st.columns([1, 1.25])
     # ---- Donut ----
-    with left:
+    if 1:
         with card("RFP Status Overview"):
             drafting = sum(1 for r in rfps if r["status"] == "Drafting")
             others = sum(1 for r in rfps if r["status"] in ("Uploaded", "Rejected"))
@@ -102,7 +101,7 @@ def page_dashboard():
                     arc + txt
                 ).properties(
                     height=300,
-                    background="#fff",
+                    background="#000",
                 ).configure_view(
                     strokeWidth=0,
                 ).configure_legend(
@@ -114,8 +113,7 @@ def page_dashboard():
 
                 st.altair_chart(chart, use_container_width=True)
 
-    # ---- Recent RFPs (delete option sits INSIDE the box) ----
-    with right:
+    if 1:
         with card("Recent RFPs"):
             if rfps:
                 n = int(ss.get("items_per_page", 6))

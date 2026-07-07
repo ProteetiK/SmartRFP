@@ -1,8 +1,5 @@
 [server]
 headless = true
-
-[server]
-headless = true
 fileWatcherType = "none"
 runOnSave = false
 

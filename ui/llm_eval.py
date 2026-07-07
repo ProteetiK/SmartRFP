@@ -1,5 +1,6 @@
 ﻿import streamlit as st
 import pandas as pd
+import altair as alt
 
 from ui import api
 from ui.ui_utils import topbar, card, current_rfp, metric
@@ -245,11 +246,72 @@ def page_llm_eval():
             .astype(float)
         )
 
-        st.bar_chart(
-            latency_stats.set_index("Metric")["Seconds"],
-            use_container_width=True,
+        chart = (
+            alt.Chart(latency_stats)
+            .mark_bar(
+                color="#FFE600",  # EY Yellow
+                cornerRadiusTopLeft=4,
+                cornerRadiusTopRight=4,
+            )
+            .encode(
+                x=alt.X(
+                    "Metric:N",
+                    sort=None,
+                    axis=alt.Axis(
+                        title="",
+                        labelColor="white",
+                        labelAngle=-20,
+                        labelFontSize=12,
+                        tickColor="#666666",
+                        domainColor="#666666",
+                    ),
+                ),
+                y=alt.Y(
+                    "Seconds:Q",
+                    axis=alt.Axis(
+                        title="Seconds",
+                        titleColor="white",
+                        labelColor="white",
+                        gridColor="#333333",
+                        tickColor="#666666",
+                        domainColor="#666666",
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip("Metric:N"),
+                    alt.Tooltip("Seconds:Q", format=".2f"),
+                ],
+            )
+            .properties(
+                height=350,
+                background="#0A0A0A",   # Entire chart background
+            )
+            .configure_view(
+                fill="#0A0A0A",         # Plotting area background
+                stroke=None,
+            )
+            .configure_axis(
+                labelColor="white",
+                titleColor="white",
+                gridColor="#333333",
+                domainColor="#666666",
+                tickColor="#666666",
+            )
+            .configure_title(
+                color="white",
+                fontSize=18,
+                font="Calibri",
+            )
+            .configure_legend(
+                labelColor="white",
+                titleColor="white",
+                fillColor="#0A0A0A",
+                strokeColor="#0A0A0A",
+            )
         )
 
+    st.altair_chart(chart, use_container_width=True)
+    
     # ---------------- Summary Metrics ----------------
     st.subheader("📊 Pipeline Statistics")
 
@@ -279,7 +341,6 @@ def page_llm_eval():
         ].iloc[0],
     )
 
-    # Optional: expandable raw table
     with st.expander("View Raw Runtime Data"):
         st.dataframe(
             stats,

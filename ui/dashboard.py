@@ -47,18 +47,72 @@ def page_dashboard():
                 st.info("No RFPs yet — upload one to see the breakdown.")
             else:
                 data["pct"] = (data["Count"] / tot * 100).round(0).astype(int)
+
                 data["label"] = data.apply(
-                    lambda r: f'{int(r["Count"])} ({r["pct"]}%)' if r["Count"] > 0 else "", axis=1)
-                rng = ["#2563eb", "#93c5fd", "#16a34a", "#f59e0b", "#cbd5e1"]
-                base = alt.Chart(data).encode(
-                    theta=alt.Theta("Count:Q", stack=True),
-                    color=alt.Color("Status:N",
-                                    scale=alt.Scale(domain=list(data["Status"]), range=rng),
-                                    legend=alt.Legend(title=None, orient="right")),
-                    tooltip=["Status", "Count", "pct"])
-                arc = base.mark_arc(innerRadius=62, outerRadius=104)
-                txt = base.mark_text(radius=125, fontSize=11, fontWeight="bold").encode(text="label:N")
-                st.altair_chart((arc + txt).properties(height=300, background="#f3fefe"), use_container_width=True)
+                    lambda r: f'{int(r["Count"])} ({r["pct"]}%)'
+                    if r["Count"] > 0 else "",
+                    axis=1,
+                )
+
+                # EY Dark Theme Palette
+                rng = [
+                    "#FFE600",  # EY Yellow
+                    "#8C8C8C",  # Medium Gray
+                    "#00A3A1",  # EY Teal
+                    "#6D6E71",  # Dark Gray
+                    "#FFFFFF",  # White
+                ]
+
+                base = (
+                    alt.Chart(data)
+                    .encode(
+                        theta=alt.Theta("Count:Q", stack=True),
+                        color=alt.Color(
+                            "Status:N",
+                            scale=alt.Scale(
+                                domain=list(data["Status"]),
+                                range=rng,
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient="right",
+                                labelColor="white",
+                                symbolStrokeColor="white",
+                            ),
+                        ),
+                        tooltip=["Status", "Count", "pct"],
+                    )
+                )
+
+                arc = base.mark_arc(
+                    innerRadius=62,
+                    outerRadius=104,
+                )
+
+                txt = base.mark_text(
+                    radius=125,
+                    fontSize=11,
+                    fontWeight="bold",
+                    color="white",
+                ).encode(
+                    text="label:N",
+                )
+
+                chart = (
+                    arc + txt
+                ).properties(
+                    height=300,
+                    background="#fff",
+                ).configure_view(
+                    strokeWidth=0,
+                ).configure_legend(
+                    labelColor="white",
+                ).configure_axis(
+                    labelColor="white",
+                    titleColor="white",
+                )
+
+                st.altair_chart(chart, use_container_width=True)
 
     # ---- Recent RFPs (delete option sits INSIDE the box) ----
     with right:

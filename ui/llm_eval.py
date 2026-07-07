@@ -36,7 +36,6 @@ def page_llm_eval():
             + evaluation["context_coverage"]
             + evaluation["pricing_freshness"]
         ) / 4
-
         left, _, _ = st.columns([1, 2, 1])
 
         with left:
@@ -48,7 +47,7 @@ def page_llm_eval():
         # ----------------------------------------------------------------------- #
         # Core Metrics
         # ----------------------------------------------------------------------- #
-        cols = st.columns(4)
+        cols = st.columns(5)
 
         metric(
             cols[0],
@@ -61,7 +60,7 @@ def page_llm_eval():
 
         metric(
             cols[1],
-            "ic-blue",
+            "ic-green",
             "📚",
             "Context",
             f"{evaluation['context_coverage'] * 100:.0f}%",
@@ -70,7 +69,7 @@ def page_llm_eval():
 
         metric(
             cols[2],
-            "ic-purple",
+            "ic-green",
             "🎯",
             "Confidence",
             f"{evaluation['average_confidence']:.2f}",
@@ -79,7 +78,16 @@ def page_llm_eval():
 
         metric(
             cols[3],
-            "ic-red",
+            "ic-green",
+            "☀️",
+            "Pricing Freshness",
+            f"{evaluation['pricing_freshness']:.2f}",
+            "LLM",
+        )
+
+        metric(
+            cols[4],
+            "ic-green",
             "⚠️",
             "Flags",
             str(evaluation["hallucination_flags"]),
@@ -96,7 +104,7 @@ def page_llm_eval():
 
         metric(
             cols[0],
-            "ic-blue",
+            "ic-green",
             "📖",
             "Faithfulness",
             f"{evaluation['faithfulness'] * 100:.1f}%",
@@ -114,7 +122,7 @@ def page_llm_eval():
 
         metric(
             cols[2],
-            "ic-purple",
+            "ic-green",
             "📚",
             "Context Precision",
             f"{evaluation['context_precision'] * 100:.1f}%",
@@ -123,7 +131,7 @@ def page_llm_eval():
 
         metric(
             cols[3],
-            "ic-amber",
+            "ic-green",
             "🔍",
             "Context Recall",
             f"{evaluation['context_recall'] * 100:.1f}%",
@@ -134,7 +142,7 @@ def page_llm_eval():
 
         metric(
             cols[0],
-            "ic-blue",
+            "ic-green",
             "🏆",
             "MRR@K",
             f"{evaluation['mrr']:.2f}",
@@ -152,7 +160,7 @@ def page_llm_eval():
 
         metric(
             cols[2],
-            "ic-red",
+            "ic-green",
             "🧩",
             "Chunk Overlap",
             f"{evaluation['chunk_overlap'] * 100:.1f}%",

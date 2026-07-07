@@ -28,7 +28,7 @@ from settings import settings
 from backend.database import Base, engine, get_db
 from backend import models, crud
 from backend.services import analyze_rfp, regenerate_pipeline, human_review
-from ui import api
+#from ui import api
 from backend.security import limiter, require_api_key, require_role
 from guardrails import GuardrailViolation
 from metrics import AUTH_FAILURES, RATE_LIMIT_REJECTIONS
@@ -189,9 +189,9 @@ def health():
     return {"status": "healthy"}
 
 
-@app.get("/health/llm")
-def health_llm():
-    return api.llm_status()
+#@app.get("/health/llm")
+#def health_llm():
+#    return api.llm_status()
 
 
 @app.get("/health/ready")

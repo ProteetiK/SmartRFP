@@ -1,5 +1,5 @@
 import streamlit as st
-
+import base64
 from ui.dashboard import page_dashboard
 from ui.export import page_export
 from ui.resource_cost import page_resource_cost
@@ -64,10 +64,17 @@ NAV = [("Upload", "☁️"), ("Dashboard", "📊"), ("Resource Cost", "💲"),
        ("Human Review", "🗂️"), ("Export", "📤"), ("AI Evaluation", "🔎"), ("Settings", "⚙️"), ("Help & Docs", "❓")]
 
 with st.sidebar:
+    def get_base64(path):
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+
+    logo = get_base64("ey-logo-dark.png")
     st.markdown(
                 f"""
                 <div class="brand">
-                    <img src="ey_logo.png" class="logo" alt="EY Logo">
+                    <div class="logo-box">
+                        <img src="data:image/png;base64,{logo}">
+                    </div>
                     <div>
                         <div class="name">Smart<span>RFP</span></div>
                         <div class="sub">{ss.get('workspace', 'AI-Powered RFP Analysis')}</div>

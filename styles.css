@@ -250,3 +250,26 @@ div[data-testid="stDataFrame"]{ border:1px solid var(--line); border-radius:12px
     border-color:#EAB308 !important;
     color:#000 !important;
 }
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-box {
+    width: 52px;
+    height: 52px;
+    background: #171717;
+    border: 2px solid #FACC15;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .logo-box img {
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+    }

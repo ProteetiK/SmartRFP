@@ -8,10 +8,17 @@ import state
 # =========================================================================== #
 #  PAGE: Resource Cost
 # =========================================================================== #
-ROLE_SPLIT = [("Project Management", 0.1466, 0.1208), ("Business Analysis", 0.1101, 0.0989),
-              ("Solution Architecture", 0.2611, 0.1758), ("Development", 0.3625, 0.3625),
-              ("Testing & QA", 0.0811, 0.1099), ("Training & Support", 0.0501, 0.0521)]
-
+ROLE_SPLIT = [
+    ("Project Manager",      0.11, 0.09),
+    ("Business Analyst",     0.10, 0.11),
+    ("Solution Architect",   0.15, 0.10),
+    ("Backend Developer",    0.20, 0.22),
+    ("Frontend Developer",   0.12, 0.15),
+    ("AI/ML Engineer",       0.12, 0.09),
+    ("DevOps Engineer",      0.09, 0.08),
+    ("QA Engineer",          0.08, 0.13),
+    ("Technical Writer",     0.03, 0.03),
+]
 
 def page_resource_cost():
     ss = state.get_state()

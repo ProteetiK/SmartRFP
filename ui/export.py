@@ -36,8 +36,6 @@ def _xlsx_export(rfp):
 
 FORMATS = [("PDF", "📕", "Best for sharing and printing"),
            ("Word (DOCX)", "📘", "Editable Word document"),
-           ("Excel (XLSX)", "📗", "Cost & resource data only"),
-           ("PowerPoint (PPTX)", "📙", "Summary presentation"),
            ("HTML", "🌐", "Web-friendly format"),
            ("Text (TXT)", "📄", "Plain text format")]
 
@@ -114,20 +112,16 @@ def page_export():
                 st.download_button("⬇️ Export Now", api.export_bytes(rfp["id"], "docx"), f"{safe}.docx",
                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                    type="primary", use_container_width=True)
-            elif fmt == "Excel (XLSX)":
-                st.download_button("⬇️ Export Now", _xlsx_export(rfp), f"{safe}.xlsx",
-                                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                   type="primary", use_container_width=True)
             elif fmt == "HTML":
                 st.download_button("⬇️ Export Now", _html_export(rfp), f"{safe}.html",
                                    "text/html", type="primary", use_container_width=True)
             elif fmt == "Text (TXT)":
                 st.download_button("⬇️ Export Now", api.export_bytes(rfp["id"], "txt"), f"{safe}.txt",
                                    "text/plain", type="primary", use_container_width=True)
-            else:  # PowerPoint placeholder -> export executive summary as TXT
+            else:
                 st.download_button("⬇️ Export Now (summary .txt)", api.export_bytes(rfp["id"], "txt"),
                                    f"{safe}.txt", "text/plain", type="primary", use_container_width=True)
-                st.caption("PPTX generation isn't enabled in this build; exporting the summary as text.")
+                st.caption("This generation isn't enabled in this build; exporting the summary as text.")
         except Exception as e:
             st.error(f"Export failed: {e}")
         if ok and rfp["status"] != "Rejected":

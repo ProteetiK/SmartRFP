@@ -15,7 +15,19 @@ def page_upload():
                           label_visibility="collapsed")
     st.caption(f"Supported formats: {', '.join(t.upper() for t in SUPPORTED_TYPES)}  ·  "
                f"Max file size: {MAX_UPLOAD_MB}MB")
+    with st.expander("Deal details (optional) — set client, region, deadline & reviewer", expanded=bool(up)):
+        c1, c2 = st.columns(2)
+        deal = c1.text_input("Deal / Project name", placeholder="e.g. Acme Cloud Migration RFP")
+        client = c2.text_input("Client name", placeholder="e.g. Acme Corp")
+        c3, c4, c5 = st.columns(3)
+        region = c3.text_input("Region", placeholder="e.g. North America")
 
+        deadline = c4.date_input(
+            "Deadline",
+            min_value=date.today()
+        )
+        role = c5.selectbox("Assign reviewer role", REVIEWER_ROLES)
+        use_web = st.checkbox("Use live web search / pricing (Agent 2)", value=True)
     analyze = st.button(
         "⚡ Analyze & Generate Response",
         type="primary",
@@ -63,12 +75,12 @@ def page_upload():
             result = api.upload_rfp(
                 filename=up.name,
                 file_bytes=up.getvalue(),
-                deal_name= "",
-                client_name= "",
-                region= "",
-                deadline= "",
-                assigned_role= "",
-                use_web_search= "",
+                deal_name=deal,
+                client_name=client,
+                region=region,
+                deadline=deadline.isoformat() if deadline else "",
+                assigned_role=role,
+                use_web_search=use_web,
             )
             bar.progress(1.0, text="Completed")
             rid = result["rfp_id"]

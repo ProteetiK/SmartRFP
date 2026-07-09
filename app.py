@@ -16,7 +16,7 @@ from PIL import Image
 
 @st.cache_resource
 def load_logo():
-    return Image.open("ey-logo.png")
+    return Image.open("file-folder.png")
 
 logo = load_logo()
 
@@ -67,7 +67,7 @@ with st.sidebar:
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode()
 
-    logo = get_base64("ey-logo-dark.png")
+    logo = get_base64("file-folder.png")
     st.markdown(
                 f"""
                 <div class="brand">

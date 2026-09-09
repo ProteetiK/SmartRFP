@@ -6,7 +6,7 @@ from backend.llm import chat
 from backend.rag.prompt_builder import PromptBuilder
 from backend.rag.retriever import Retriever
 from backend.rag.utils import KB_NAMESPACE, rfp_namespace
-from metrics import RAG_EMPTY, RAG_QUERIES, RAG_RESULTS
+from backend.metrics import RAG_EMPTY, RAG_QUERIES, RAG_RESULTS
 
 
 def _doc_to_dict(doc) -> Dict:

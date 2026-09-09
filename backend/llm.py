@@ -4,7 +4,7 @@ import time
 
 from langsmith import traceable
 
-from metrics import (
+from backend.metrics import (
     LLM_REQUESTS,
     LLM_ERRORS,
     LLM_LATENCY,

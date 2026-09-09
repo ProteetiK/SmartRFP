@@ -4,7 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from metrics import (
+from backend.metrics import (
     GUARDRAIL_INPUT_BLOCKS,
     GUARDRAIL_OUTPUT_REDACTIONS,
     GUARDRAIL_PII_REDACTIONS,

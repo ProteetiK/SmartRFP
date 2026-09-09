@@ -2,7 +2,6 @@
 import streamlit as st
 import pandas as pd
 
-import config
 from ui import api
 import state
 from ui.ui_utils import (topbar,card)
@@ -84,12 +83,6 @@ def page_settings():
                 f"- **Confirm before export:** {'On' if ss.get('confirm_export', True) else 'Off'}")
 
     # ---- AI Model (backend-driven Groq status panel) ----
-    # Fix note: this used to read config.GROQ_API_KEY / config.GROQ_MODEL and
-    # call llm.ping() directly from inside the Streamlit process -- meaning
-    # the frontend needed its own copy of GROQ_API_KEY and called Groq
-    # itself, bypassing the backend entirely. It now asks the backend's
-    # /health/llm endpoint, which is the only place that should hold that
-    # key. The frontend no longer needs (or reads) any LLM credentials.
     with tabs[1]:
         st.markdown("<div class='card'><h3>🤖 AI Model Status</h3>", unsafe_allow_html=True)
         status = api.llm_status()

@@ -2,8 +2,8 @@ from fastapi import UploadFile
 
 from backend.database import SessionLocal
 from backend import crud
-from utils.file_handler import extract_text
-from pipeline import run_pipeline
+from backend.utils.file_handler import extract_text
+from backend.pipeline import run_pipeline
 
 
 async def analyze_rfp(file: UploadFile, deal_name: str = "", client_name: str = "",

@@ -5,10 +5,10 @@ import altair as alt
 from ui import api
 from ui.ui_utils import topbar, card, current_rfp, metric
 
-from langsmith_utils import (
-    get_trace_id_for_rfp,
-    get_trace_latencies,
-)
+# from langsmith_utils import (
+#     get_trace_id_for_rfp,
+#     get_trace_latencies,
+# )
 
 # =========================================================================== #
 #  PAGE: AI Evaluation
@@ -172,14 +172,13 @@ def page_llm_eval():
     # Runtime Statistics
     # ----------------------------------------------------------------------- #
     # ----------------------------------------------------------------------- #
-    trace_id = get_trace_id_for_rfp(rfp.get("id"))
-    latencies = {}
+    trace_data = api.get_trace_latencies(rfp.get("id"))
 
-    if trace_id != 0:
-        try:
-            latencies = get_trace_latencies(trace_id)
-        except Exception as e:
-            st.warning(f"Unable to retrieve LangSmith trace: {e}")
+    trace_id = trace_data.get("trace_id")
+    latencies = trace_data.get("latencies", {})
+
+    if trace_id is None:
+        st.info("No LangSmith trace is available for this RFP.")
 
     # Build runtime table
     runtime_rows = []

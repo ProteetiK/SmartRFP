@@ -2,7 +2,6 @@
 from datetime import date
 from ui.ui_utils import (topbar, go)
 from config import (SUPPORTED_TYPES, MAX_UPLOAD_MB, REVIEWER_ROLES)
-from utils.file_handler import extract_text
 from ui import api
 import state
 # =========================================================================== #
@@ -36,39 +35,6 @@ def page_upload():
     )
 
     if up and analyze:
-        try:
-            raw = extract_text(up.name, up.getvalue())
-        except Exception as e:
-            st.error(f"Could not read that file: {e}"); return
-        if len(raw.strip()) < 30:
-            st.error("That file has almost no readable text."); return
-        if len(raw) < 100:
-            st.error("The document contains very little readable text.")
-            st.stop()
-
-        # Optional: ensure enough words
-        if len(raw.split()) < 20:
-            st.error("The document does not contain enough content for analysis.")
-            st.stop()
-
-        RFP_KEYWORDS = [
-            "proposal",
-            "rfp",
-            "requirements",
-            "scope",
-            "deliverables",
-        ]
-
-        text = raw.lower()
-
-        matches = sum(keyword in text for keyword in RFP_KEYWORDS)
-
-        if matches < 2:
-            st.warning(
-                "This document doesn't appear to be an RFP. "
-                "Analysis may not produce the expected results."
-            )
-
         bar = st.progress(0.0, text="Uploading to backend…")
         rid = None
         try:

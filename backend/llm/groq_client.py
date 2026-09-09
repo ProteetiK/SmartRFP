@@ -6,8 +6,8 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 from langsmith import traceable
 
-from settings import settings
-from metrics import LLM_REQUESTS, LLM_ERRORS, LLM_LATENCY, LLM_FAILOVER_TOTAL, LLM_PROVIDER_REQUESTS
+from backend.config import settings
+from backend.metrics import LLM_REQUESTS, LLM_ERRORS, LLM_LATENCY, LLM_FAILOVER_TOTAL, LLM_PROVIDER_REQUESTS
 
 logger = logging.getLogger("smartrfp.llm")
 

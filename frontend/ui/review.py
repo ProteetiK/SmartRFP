@@ -51,6 +51,48 @@ def page_review():
                         st.toast("Saved."); st.rerun()
                 st.markdown("<hr>", unsafe_allow_html=True)
 
+        with card("Pricing Review"):
+            pricing = api.get_pricing(rfp["id"])
+            df = pd.DataFrame(pricing)
+            edited = st.data_editor(
+                df,
+                hide_index=True,
+                use_container_width=True,
+                disabled=["source"],
+            )
+
+            # Convert editable columns to numbers
+            edited["qty"] = (
+                pd.to_numeric(edited["qty"], errors="coerce")
+                .fillna(1)
+            )
+
+            edited["unit_price"] = (
+                pd.to_numeric(edited["unit_price"], errors="coerce")
+                .fillna(0)
+            )
+
+            edited["total"] = (
+                edited["qty"] * edited["unit_price"]
+            ).round(2)
+
+            # Recalculate totals
+            edited["total"] = (
+                edited["qty"].fillna(1) *
+                edited["unit_price"].fillna(0)
+            ).round(2)
+
+            # Keep margin row unchanged
+            mask = edited["item"].str.contains("Margin", case=False, na=False)
+            edited.loc[mask, "total"] = df.loc[mask, "total"]
+            if st.button("💾 Save Pricing"):
+                api.update_pricing(
+                    rfp["id"],
+                    edited.to_dict("records")
+                )
+                st.toast("Pricing updated")
+                st.rerun()
+
     # --- Whole-proposal actions ---
     with rightc:
         with card("Review Actions"):

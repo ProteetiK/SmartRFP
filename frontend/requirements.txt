@@ -1,0 +1,6 @@
+streamlit
+pandas
+requests
+httpx
+python-dotenv
+pillow

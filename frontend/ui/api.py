@@ -5,6 +5,7 @@ import streamlit as st
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+#BASE = os.getenv("SMARTRFP_API_URL", "https://smartrfp-production.up.railway.app").rstrip("/")
 BASE = os.getenv("SMARTRFP_API_URL", "http://localhost:8000").rstrip("/")
 TIMEOUT = 600
 API_KEY = os.getenv("SMARTRFP_API_KEY", "")
@@ -225,6 +226,14 @@ def update_draft_section(section_id, content):
     clear_cache()
     return result
 
+def update_pricing(rfp_id, pricing_lines):
+    result = _put(
+        f"/pricing/{rfp_id}",
+        json={"pricing": pricing_lines},
+    )
+
+    clear_cache()
+    return result
 
 # --------------------------------------------------------------------
 # Pricing / Evaluation
@@ -238,6 +247,8 @@ def get_evaluation_metrics(rfp_id):
     data = _safe(f"/evaluation/{rfp_id}", None)
     return data or None
 
+def get_trace_latencies(rfp_id):
+    return _safe(f"/evaluation/{rfp_id}/latencies", {})
 
 # --------------------------------------------------------------------
 # Audit
@@ -340,3 +351,14 @@ def debug_retrieval(rfp_id):
     Live diagnostic: real Pinecone vector counts + raw similarity scores.
     """
     return _get(f"/debug/retrieval/{rfp_id}")
+    
+def get_trace_latencies(rfp_id):
+    data = _safe(
+        f"/evaluation/{rfp_id}/latencies",
+        {"trace_id": None, "latencies": {}},
+    )
+
+    return data or {
+        "trace_id": None,
+        "latencies": {},
+    }

@@ -84,6 +84,7 @@ class Settings(BaseSettings):
 
     # ---- Frontend <-> backend (HTTP) -------------------------------------
     SMARTRFP_API_URL: str = "http://localhost:8000"
+    #SMARTRFP_API_URL: str = "https://smartrfp-production.up.railway.app"
     SMARTRFP_API_KEY: str = ""
 
     # ---- Exports ----------------------------------------------------------

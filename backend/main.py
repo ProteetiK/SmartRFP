@@ -3,6 +3,12 @@ import logging
 import os
 
 from dotenv import load_dotenv, find_dotenv
+
+from backend.langsmith_utils import (
+    get_trace_id_for_rfp,
+    get_trace_latencies,
+)
+
 load_dotenv(find_dotenv())
 
 if os.getenv("LANGCHAIN_TRACING_V2", "").lower() == "true" and not os.getenv("LANGCHAIN_API_KEY", "").strip():
@@ -24,15 +30,14 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from fastapi.responses import JSONResponse
 
-from settings import settings
+from backend.config import settings
 from backend.database import Base, engine, get_db
-from backend import models, crud
+from backend import crud
 from backend.services import analyze_rfp, regenerate_pipeline, human_review
-#from ui import api
 from backend.security import limiter, require_api_key, require_role
-from guardrails import GuardrailViolation
-from metrics import AUTH_FAILURES, RATE_LIMIT_REJECTIONS
-from utils.exporter import export_txt, export_docx, export_pdf
+from backend.guardrails import GuardrailViolation
+from backend.metrics import AUTH_FAILURES, RATE_LIMIT_REJECTIONS
+from backend.utils.exporter import export_txt, export_docx, export_pdf
 
 
 
@@ -506,3 +511,23 @@ def export_history(rfp_id: int, db: Session = Depends(get_db), _auth: str = Depe
             })
     files.sort(key=lambda f: f["modified_at"], reverse=True)
     return {"exports": files}
+
+@app.get("/evaluation/{rfp_id}/latencies")
+async def get_evaluation_latencies(
+    rfp_id: int,
+    _auth: str = Depends(require_api_key),
+):
+    trace_id = get_trace_id_for_rfp(rfp_id)
+
+    if not trace_id:
+        return {
+            "trace_id": None,
+            "latencies": {},
+        }
+
+    latencies = get_trace_latencies(trace_id)
+
+    return {
+        "trace_id": trace_id,
+        "latencies": latencies,
+    }

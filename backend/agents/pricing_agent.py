@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from langsmith import trace
 from langsmith.run_helpers import get_current_run_tree
 
-from metrics import (
+from backend.metrics import (
     PRICING_REQUESTS,
     PRICING_ITEMS,
 )

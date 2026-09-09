@@ -1,10 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor
 import time
 
-from agents.extractor import extract_requirements
-from agents.rag_agent import RAGAgent
-from agents.pricing_agent import fetch_pricing
-from agents.draft_generator import generate_draft
+from backend.agents.extractor import extract_requirements
+from backend.agents.rag_agent import RAGAgent
+from backend.agents.pricing_agent import fetch_pricing
+from backend.agents.draft_generator import generate_draft
 from backend import crud
 from backend.config import settings
 from backend.rag.ingestion import DocumentIngestion
@@ -13,7 +13,7 @@ from langsmith import traceable, trace
 from langsmith.run_helpers import get_current_run_tree
 from evaluation import evaluate_pipeline
 
-from metrics import (
+from backend.metrics import (
     PIPELINE_RUNS,
     PIPELINE_FAILURES,
     PIPELINE_RUNTIME,

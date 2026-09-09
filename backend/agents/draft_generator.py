@@ -1,7 +1,7 @@
 import re
 from backend.llm import chat, LLMUnavailable
 from langsmith import traceable
-from guardrails import (
+from backend.guardrails import (
     validate_input,
     remove_pii,
     validate_output,

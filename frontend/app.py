@@ -13,10 +13,13 @@ from ui import api
 from config import APP_NAME
 import state
 from PIL import Image
+from pathlib import Path
+import base64
 
 @st.cache_resource
 def load_logo():
-    return Image.open("file-folder.png")
+    logo_path = Path(__file__).parent / "file-folder.png"
+    return Image.open(logo_path)
 
 logo = load_logo()
 
@@ -32,8 +35,8 @@ from pathlib import Path
 
 @st.cache_resource
 def load_css():
-    from pathlib import Path
-    return Path("styles.css").read_text()
+    css_path = Path(__file__).parent / "styles.css"
+    return css_path.read_text(encoding="utf-8")
 
 st.markdown(
     f"<style>{load_css()}</style>",
@@ -63,7 +66,11 @@ NAV = [("Upload", "☁️"), ("Dashboard", "📊"), ("Resource Cost", "💲"),
        ("Human Review", "🗂️"), ("Export", "📤"), ("AI Evaluation", "🔎"), ("Settings", "⚙️"), ("Help & Docs", "❓")]
 
 with st.sidebar:
-    def get_base64(path):
+    FRONTEND_DIR = Path(__file__).parent
+
+    def get_base64(filename):
+        path = FRONTEND_DIR / filename
+
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode()
 

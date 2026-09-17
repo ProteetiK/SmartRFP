@@ -6,8 +6,8 @@ from typing import Dict, List, Optional
 from azure.search.documents.models import VectorizedQuery
 from langchain_core.documents import Document
 
-from backend.rag.embedding import get_embedding_service
 from backend.rag.azure_search_client import get_search_client
+from backend.rag.embedding import get_embedding_service
 from backend.rag.utils import (
     generate_vector_id,
     sanitize_metadata,
@@ -20,13 +20,20 @@ UPLOAD_BATCH_SIZE = 100
 
 
 class VectorStore:
+    """
+    Azure AI Search-backed vector store.
+
+    This class intentionally keeps the same public interface that the
+    previous Pinecone implementation exposed so that the RAG pipeline
+    does not need to know which vector database is being used.
+    """
 
     def __init__(self):
         self.embedder = get_embedding_service()
         self.client = get_search_client()
 
     # ------------------------------------------------------------------ #
-    # UPSERT
+    # Upload / Upsert
     # ------------------------------------------------------------------ #
 
     def upsert_documents(
@@ -39,22 +46,40 @@ class VectorStore:
             return 0
 
         texts = [
-            doc.page_content
-            for doc in documents
+            document.page_content
+            for document in documents
         ]
 
         embeddings = self.embedder.embed_documents(texts)
 
-        search_documents = []
-
-        for doc, embedding in zip(documents, embeddings):
-
-            rfp_id = str(
-                doc.metadata["rfp_id"]
+        if len(embeddings) != len(documents):
+            raise RuntimeError(
+                "Number of generated embeddings does not match "
+                "number of documents."
             )
 
-            chunk_id = str(
-                doc.metadata["chunk_id"]
+        search_documents = []
+
+        for document, embedding in zip(
+            documents,
+            embeddings,
+        ):
+            metadata = sanitize_metadata(
+                document.metadata
+            )
+
+            rfp_id = str(
+                metadata.get("rfp_id", "")
+            )
+
+            if not rfp_id:
+                raise ValueError(
+                    "Document is missing required metadata: rfp_id"
+                )
+
+            chunk_id = metadata.get(
+                "chunk_id",
+                0,
             )
 
             document_id = generate_vector_id(
@@ -62,33 +87,53 @@ class VectorStore:
                 chunk_id=chunk_id,
             )
 
-            metadata = sanitize_metadata(
-                {
-                    **doc.metadata,
-                    "text": doc.page_content,
-                }
-            )
+            search_document = {
+                "id": document_id,
+
+                "rfp_id": rfp_id,
+
+                "chunk_id": int(chunk_id),
+
+                "filename": str(
+                    metadata.get("filename", "")
+                ),
+
+                "doc_hash": str(
+                    metadata.get("doc_hash", "")
+                ),
+
+                "ingested_at": str(
+                    metadata.get("ingested_at", "")
+                ),
+
+                "source_type": str(
+                    metadata.get("source_type", "")
+                ),
+
+                "kb_id": metadata.get("kb_id"),
+
+                "doc_type": str(
+                    metadata.get("doc_type", "")
+                ),
+
+                "content": document.page_content,
+
+                "content_vector": embedding,
+            }
 
             search_documents.append(
-                {
-                    "id": document_id,
-                    "rfp_id": rfp_id,
-                    "chunk_id": chunk_id,
-                    "content": doc.page_content,
-                    "content_vector": embedding,
-                    **metadata,
-                }
+                search_document
             )
 
         total = 0
 
-        for i in range(
+        for start in range(
             0,
             len(search_documents),
             UPLOAD_BATCH_SIZE,
         ):
             batch = search_documents[
-                i:i + UPLOAD_BATCH_SIZE
+                start:start + UPLOAD_BATCH_SIZE
             ]
 
             self._upload_batch(batch)
@@ -96,14 +141,14 @@ class VectorStore:
             total += len(batch)
 
         logger.info(
-            "Uploaded %d documents to Azure AI Search index.",
+            "Uploaded %d documents to Azure AI Search.",
             total,
         )
 
         return total
 
     # ------------------------------------------------------------------ #
-    # UPLOAD
+    # Upload batch
     # ------------------------------------------------------------------ #
 
     @with_retry(
@@ -115,24 +160,35 @@ class VectorStore:
         batch: List[Dict],
     ):
 
-        result = self.client.upload_documents(
+        results = self.client.upload_documents(
             documents=batch
         )
 
         failed = [
-            item
-            for item in result
-            if not item.succeeded
+            result
+            for result in results
+            if not result.succeeded
         ]
 
         if failed:
+            errors = []
+
+            for result in failed:
+                errors.append(
+                    getattr(
+                        result,
+                        "error_message",
+                        "Unknown indexing error",
+                    )
+                )
+
             raise RuntimeError(
-                f"Azure AI Search failed to index "
-                f"{len(failed)} documents."
+                "Azure AI Search failed to index "
+                f"{len(failed)} documents: {errors}"
             )
 
     # ------------------------------------------------------------------ #
-    # SEARCH
+    # Similarity search
     # ------------------------------------------------------------------ #
 
     @with_retry(
@@ -147,8 +203,11 @@ class VectorStore:
         metadata_filter: Optional[Dict] = None,
     ) -> List[Document]:
 
-        query_embedding = (
-            self.embedder.embed_query(query)
+        if not query or not query.strip():
+            return []
+
+        query_embedding = self.embedder.embed_query(
+            query
         )
 
         vector_query = VectorizedQuery(
@@ -172,6 +231,12 @@ class VectorStore:
                 "id",
                 "rfp_id",
                 "chunk_id",
+                "filename",
+                "doc_hash",
+                "ingested_at",
+                "source_type",
+                "kb_id",
+                "doc_type",
                 "content",
             ],
             top=top_k,
@@ -182,9 +247,48 @@ class VectorStore:
         for result in results:
 
             metadata = {
-                "rfp_id": result.get("rfp_id"),
-                "chunk_id": result.get("chunk_id"),
-                "score": result.get("@search.score", 0.0),
+                "rfp_id": result.get(
+                    "rfp_id"
+                ),
+
+                "chunk_id": result.get(
+                    "chunk_id"
+                ),
+
+                "filename": result.get(
+                    "filename"
+                ),
+
+                "doc_hash": result.get(
+                    "doc_hash"
+                ),
+
+                "ingested_at": result.get(
+                    "ingested_at"
+                ),
+
+                "source_type": result.get(
+                    "source_type"
+                ),
+
+                "kb_id": result.get(
+                    "kb_id"
+                ),
+
+                "doc_type": result.get(
+                    "doc_type"
+                ),
+
+                "score": result.get(
+                    "@search.score",
+                    0.0,
+                ),
+            }
+
+            metadata = {
+                key: value
+                for key, value in metadata.items()
+                if value is not None
             }
 
             documents.append(
@@ -197,10 +301,16 @@ class VectorStore:
                 )
             )
 
+        logger.info(
+            "Azure AI Search returned %d documents "
+            "for query.",
+            len(documents),
+        )
+
         return documents
 
     # ------------------------------------------------------------------ #
-    # FILTER
+    # Build Azure Search filter
     # ------------------------------------------------------------------ #
 
     def _build_filter(
@@ -211,36 +321,57 @@ class VectorStore:
 
         filters = []
 
+        # -------------------------------------------------------------- #
+        # Replace Pinecone namespace
+        # -------------------------------------------------------------- #
+
         if namespace and namespace != "default":
 
-            # Existing SmartRFP namespace:
-            # rfp_namespace(123) -> e.g. "rfp_123"
+            if namespace.startswith("rfp-"):
 
-            if namespace.startswith("rfp_"):
-                rfp_id = namespace.replace(
-                    "rfp_",
-                    "",
-                    1,
-                )
+                rfp_id = namespace[
+                    len("rfp-"):
+                ]
 
                 filters.append(
-                    f"rfp_id eq '{rfp_id}'"
+                    "rfp_id eq "
+                    f"'{self._escape_filter_value(rfp_id)}'"
                 )
+
+            elif namespace == "knowledge-base":
+
+                filters.append(
+                    "source_type eq "
+                    "'knowledge_base'"
+                )
+
+        # -------------------------------------------------------------- #
+        # Additional metadata filters
+        # -------------------------------------------------------------- #
 
         if metadata_filter:
 
             for key, value in metadata_filter.items():
 
-                if isinstance(value, str):
-                    filters.append(
-                        f"{key} eq '{value}'"
-                    )
-                elif isinstance(value, bool):
+                if value is None:
+                    continue
+
+                if isinstance(value, bool):
+
                     filters.append(
                         f"{key} eq "
                         f"{str(value).lower()}"
                     )
+
+                elif isinstance(value, str):
+
+                    filters.append(
+                        f"{key} eq "
+                        f"'{self._escape_filter_value(value)}'"
+                    )
+
                 else:
+
                     filters.append(
                         f"{key} eq {value}"
                     )
@@ -250,8 +381,17 @@ class VectorStore:
 
         return " and ".join(filters)
 
+    @staticmethod
+    def _escape_filter_value(
+        value: str,
+    ) -> str:
+        return value.replace(
+            "'",
+            "''",
+        )
+
     # ------------------------------------------------------------------ #
-    # DELETE RFP
+    # Delete RFP
     # ------------------------------------------------------------------ #
 
     def delete_rfp(
@@ -262,9 +402,14 @@ class VectorStore:
 
         rfp_id = str(rfp_id)
 
+        filter_expression = (
+            "rfp_id eq "
+            f"'{self._escape_filter_value(rfp_id)}'"
+        )
+
         results = self.client.search(
             search_text="*",
-            filter=f"rfp_id eq '{rfp_id}'",
+            filter=filter_expression,
             select=["id"],
         )
 
@@ -275,18 +420,52 @@ class VectorStore:
             for result in results
         ]
 
-        if ids:
-            self.client.delete_documents(
-                documents=ids
+        if not ids:
+            logger.info(
+                "No Azure AI Search documents found "
+                "for rfp_id=%s.",
+                rfp_id,
+            )
+            return
+
+        for start in range(
+            0,
+            len(ids),
+            UPLOAD_BATCH_SIZE,
+        ):
+
+            batch = ids[
+                start:start + UPLOAD_BATCH_SIZE
+            ]
+
+            delete_results = (
+                self.client.delete_documents(
+                    documents=batch
+                )
             )
 
+            failed = [
+                result
+                for result in delete_results
+                if not result.succeeded
+            ]
+
+            if failed:
+                raise RuntimeError(
+                    "Failed to delete "
+                    f"{len(failed)} Azure AI Search "
+                    "documents."
+                )
+
         logger.info(
-            "Deleted RFP %s from Azure AI Search.",
+            "Deleted %d Azure AI Search documents "
+            "for rfp_id=%s.",
+            len(ids),
             rfp_id,
         )
 
     # ------------------------------------------------------------------ #
-    # DELETE NAMESPACE
+    # Delete namespace
     # ------------------------------------------------------------------ #
 
     def delete_namespace(
@@ -294,18 +473,68 @@ class VectorStore:
         namespace: str,
     ):
 
-        if namespace.startswith("rfp_"):
+        if namespace.startswith("rfp-"):
 
-            rfp_id = namespace.replace(
-                "rfp_",
-                "",
-                1,
+            rfp_id = namespace[
+                len("rfp-"):
+            ]
+
+            self.delete_rfp(
+                rfp_id=rfp_id,
+                namespace=namespace,
             )
 
-            self.delete_rfp(rfp_id)
+            return
+
+        if namespace == "knowledge-base":
+
+            filter_expression = (
+                "source_type eq "
+                "'knowledge_base'"
+            )
+
+            results = self.client.search(
+                search_text="*",
+                filter=filter_expression,
+                select=["id"],
+            )
+
+            ids = [
+                {
+                    "id": result["id"]
+                }
+                for result in results
+            ]
+
+            for start in range(
+                0,
+                len(ids),
+                UPLOAD_BATCH_SIZE,
+            ):
+
+                batch = ids[
+                    start:start + UPLOAD_BATCH_SIZE
+                ]
+
+                self.client.delete_documents(
+                    documents=batch
+                )
+
+            logger.info(
+                "Deleted %d knowledge-base "
+                "documents.",
+                len(ids),
+            )
+
+            return
+
+        logger.warning(
+            "Unknown Azure AI Search namespace: %s",
+            namespace,
+        )
 
     # ------------------------------------------------------------------ #
-    # STATS
+    # Statistics
     # ------------------------------------------------------------------ #
 
     def describe(self):
@@ -317,6 +546,7 @@ class VectorStore:
         )
 
         return {
-            "document_count":
+            "document_count": (
                 results.get_count() or 0
+            )
         }
